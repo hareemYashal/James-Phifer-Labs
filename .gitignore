@@ -1,14 +1,13 @@
 # Environment variables
 .env
-*.env
+.env.local
+.env.*.local
 
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-
-# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -25,31 +24,40 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 venv/
 env/
 ENV/
+env.bak/
+venv.bak/
 
-# IDE files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# OS files
+# OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Generated results
-*_analysis_results.json
+# Generated files
 *_extraction_results.json
-*_lab_extraction_results.json
 *_analysis_results.json
-
-# Logs
+*_lab_extraction_results.json
+test_extraction_results.json
 *.log
-
-# Temporary files
 *.tmp
 *.temp
+
+# API keys and sensitive data
+config_local.py
+secrets.json

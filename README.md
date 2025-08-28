@@ -1,240 +1,367 @@
-# PDF Key-Value Extractor using Gemini 2.5 API
+# Comprehensive PDF Extraction System
 
-This project provides an intelligent PDF analysis system that can extract form fields, keys, and values from both text-based and image-based PDFs using Google's Gemini 2.5 API.
+A powerful PDF extraction system that uses Google Gemini 2.0 Flash to extract all fields, values, and checkboxes from Chain-of-Custody Analytical Request Documents.
 
 ## Features
 
-- **Multi-format PDF Support**: Handles both text-based and image-based PDFs
-- **Intelligent Field Extraction**: Uses multiple extraction methods for maximum accuracy
-- **AI-Powered Analysis**: Leverages Gemini 2.5 for text and vision analysis
-- **Document Comparison**: Compares template PDFs with filled PDFs
-- **Field Mapping**: Intelligently maps fields between documents
-- **Multiple Extraction Methods**:
-  - Native PDF form field extraction
-  - AI-powered text analysis
-  - AI-powered image analysis (vision)
-  - Pattern-based field detection
+- **Comprehensive Field Extraction**: Extracts every single field, value, and detail from PDF documents
+- **Checkbox Detection**: Identifies all checkboxes (both box-style and bracket-style `[ ]`) and their states
+- **Sample ID Mapping**: Maps which Sample IDs are checked for which Analysis Requests
+- **Data Deliverables Checkboxes**: Extracts Level II, III, IV, Equis, and Others options
+- **Rush Options**: Extracts Same Day, 1 Day, 2 Day, 3 Day, and Others options
+- **Time Zone Collection**: Extracts AM, PT, MT, CT, ET timezone checkboxes
+- **Container Information**: Extracts Container Size and Preservative Type values
+- **Reportable Checkboxes**: Extracts Yes/No reportable options
+- **AI-Powered Analysis**: Uses Google Gemini 2.0 Flash for accurate and detailed extraction
+- **Single API Endpoint**: One endpoint to upload PDF and get all extracted information
+- **Interactive Command Line**: User-friendly interface for direct PDF processing
+- **Structured JSON Response**: Returns well-organized JSON with all extracted data
 
-## Project Structure
+## Installation
 
-```
-├── config.py                 # Configuration and API key settings
-├── pdf_analyzer.py          # Basic PDF analyzer
-├── advanced_pdf_extractor.py # Advanced extraction with multiple methods
-├── comprehensive_lab_extractor.py # Comprehensive lab document extractor
-├── robust_lab_extractor.py  # Robust lab document extractor
-├── enhanced_extractor.py    # Enhanced extraction capabilities
-├── pdf_extractor_lightweight.py # Lightweight extraction version
-├── requirements.txt         # Python dependencies
-├── requirements_lightweight.txt # Lightweight dependencies
-├── README.md               # This file
-├── env.example             # Example environment file
-└── Sample Documents/       # PDF files for analysis
-    ├── COC_2014r (1).pdf  # Template PDF (unfilled)
-    └── 2097_001.pdf       # Filled PDF with values
-```
+### Prerequisites
 
-## Setup Instructions
+- Python 3.8 or higher
+- Google Gemini API key
 
-### 1. Get Gemini API Key
+### Setup
 
-1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Sign in with your Google account
-3. Create a new API key
-4. Copy the API key
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/pdf-extraction-system.git
+   cd pdf-extraction-system
+   ```
 
-### 2. Install Dependencies
+2. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Get your Gemini API key**
+   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Sign in with your Google account
+   - Create a new API key
+   - Copy the API key
+
+4. **Configure API Key**
+   
+   Create a `.env` file in the project root:
+   ```bash
+   cp env.example .env
+   ```
+   
+   Edit the `.env` file and add your actual API key:
+   ```
+   GEMINI_API_KEY=your_actual_gemini_api_key_here
+   ```
+   
+   **Important**: Replace `your_actual_gemini_api_key_here` with your real API key.
+
+### Alternative Installation (if you encounter issues)
+
+If you have problems with the standard installation, try:
 
 ```bash
-pip install -r requirements.txt
-```
-
-**Note**: If you encounter issues with `fitz` (PyMuPDF), you may need to install it separately:
-
-```bash
+# Install packages individually
+pip install google-generativeai
 pip install PyMuPDF
-```
-
-### 3. Configure API Key
-
-Create a `.env` file in the project root and add your API key:
-
-```bash
-# Copy the example file
-cp env.example .env
-
-# Edit .env and add your actual API key
-GEMINI_API_KEY=your_actual_api_key_here
+pip install Pillow
+pip install python-dotenv
+pip install fastapi
+pip install uvicorn
+pip install python-multipart
+pip install pydantic
+pip install numpy
 ```
 
 ## Usage
 
-### Basic Usage
+### 1. Interactive Command Line Usage (Recommended)
 
-Run any of the available extractors:
-
-```bash
-# Basic PDF analyzer
-python pdf_analyzer.py
-
-# Advanced PDF extractor
-python advanced_pdf_extractor.py
-
-# Comprehensive lab extractor
-python comprehensive_lab_extractor.py
-
-# Robust lab extractor
-python robust_lab_extractor.py
-```
-
-### Lightweight Setup
-
-For a minimal installation, use the lightweight version:
+Run the extraction interactively with user input:
 
 ```bash
-pip install -r requirements_lightweight.txt
-python pdf_extractor_lightweight.py
+python pdf_extractor.py
 ```
 
-### Programmatic Usage
+This will present you with a menu:
+- **Option 1**: Enter the full path to any PDF file
+- **Option 2**: Use the sample PDF (OCR 35.pdf)
+- **Option 3**: Exit the program
 
-```python
-from advanced_pdf_extractor import AdvancedPDFExtractor
+The system will:
+- Extract all fields and checkboxes
+- Display results in a user-friendly format
+- Save results to a JSON file
+- Allow you to process multiple PDFs in one session
 
-# Initialize extractor
-extractor = AdvancedPDFExtractor(api_key="your_api_key")
+### 2. Web API Usage
 
-# Extract fields from a PDF
-result = extractor.extract_form_fields("path/to/your.pdf")
+Start the FastAPI server:
 
-# Compare two documents
-comparison = extractor.compare_documents_advanced("template.pdf", "filled.pdf")
+```bash
+python api.py
 ```
 
-## How It Works
+The server will start on `http://localhost:8000`
 
-### 1. PDF Type Detection
-The system automatically detects whether a PDF is:
-- **Text-based**: Contains extractable text content
-- **Image-based**: Contains only images (scanned documents)
+#### API Endpoints
 
-### 2. Multi-Method Extraction
+- **POST `/extract`**: Extract all fields, values, and checkboxes from a PDF
+- **GET `/health`**: Check API health status
+- **GET `/`**: API information and usage
 
-#### Method 1: Native Form Fields
-- Extracts built-in PDF form fields
-- Most accurate for fillable PDFs
+#### API Documentation
 
-#### Method 2: AI Text Analysis
-- Analyzes text content using Gemini 2.5
-- Identifies field names and values
-- Handles complex document structures
+Once the server is running, visit:
+- `http://localhost:8000/docs` - Interactive API documentation
+- `http://localhost:8000/redoc` - Alternative API documentation
 
-#### Method 3: AI Vision Analysis
-- Converts PDF pages to images
-- Uses Gemini Vision to analyze document layout
-- Extracts fields from scanned documents
+### 3. Testing
 
-#### Method 4: Pattern Matching
-- Uses regex patterns to identify common field formats
-- Fast and lightweight
+Run the test suite to verify everything is working:
 
-### 3. Intelligent Field Mapping
-- Matches fields between template and filled documents
-- Calculates similarity scores
-- Handles variations in field naming
+```bash
+python test_extraction.py
+```
 
-## Output Format
+## Response Format
 
-The system generates structured JSON output with:
+The system returns JSON in the exact format you specified:
 
 ```json
 {
-  "template_analysis": {
-    "pdf_path": "path/to/template.pdf",
-    "pdf_type": "text|image",
-    "extracted_data": {
-      "fields": [
-        {
-          "key": "field_name",
-          "value": "field_value",
-          "type": "field_type",
-          "page": 1,
-          "method": "extraction_method"
-        }
-      ]
+  "status": "success",
+  "pdf_path": "path/to/file.pdf",
+  "file_size_bytes": 671718,
+  "file_size_mb": 0.64,
+  "extraction_methods": ["Comprehensive AI Vision"],
+  "extracted_fields": [
+    {
+      "key": "Document Title",
+      "value": "CHAIN-OF-CUSTODY Analytical Request Document",
+      "type": "header",
+      "page": 1,
+      "method": "AI Vision"
+    },
+    {
+      "key": "XM-15_OPS 3467",
+      "value": "checked",
+      "page": 1,
+      "method": "AI Vision",
+      "type": "analysis_checkbox",
+      "sample_id": "XM-15",
+      "analysis_name": "OPS 3467"
+    },
+    {
+      "key": "Container Size",
+      "value": "500ml",
+      "page": 1,
+      "method": "AI Vision",
+      "type": "field"
+    },
+    {
+      "key": "Data Deliverables Level II",
+      "value": "checked",
+      "page": 1,
+      "method": "AI Vision",
+      "type": "checkbox",
+      "checkbox_type": "data_deliverables"
+    }
+  ],
+  "all_checkboxes": {
+    "hazard_checkboxes": {},
+    "technical_checkboxes": {},
+    "administrative_checkboxes": {},
+    "analysis_checkboxes": {},
+    "data_deliverables_checkboxes": {
+      "Level II": "checked",
+      "Level III": "unchecked",
+      "Level IV": "checked",
+      "Equis": "unchecked",
+      "Others": "unchecked"
+    },
+    "rush_option_checkboxes": {
+      "Same Day": "unchecked",
+      "1 Day": "checked",
+      "2 Day": "unchecked",
+      "3 Day": "unchecked",
+      "Others": "unchecked"
+    },
+    "timezone_checkboxes": {
+      "AM": "unchecked",
+      "PT": "unchecked",
+      "MT": "checked",
+      "CT": "unchecked",
+      "ET": "unchecked"
+    },
+    "reportable_checkboxes": {
+      "Yes": "checked",
+      "No": "unchecked"
+    },
+    "other_checkboxes": {},
+    "all_checkboxes_summary": {}
+  },
+  "sample_analysis_mapping": {
+    "sample_ids": ["XM-15", "Xm-30", "xm-45"],
+    "analysis_requests": ["OPS 3467", "Q 61724", "T-24461"],
+    "sample_analysis_map": {
+      "XM-15": {
+        "OPS 3467": "checked",
+        "Q 61724": "checked",
+        "T-24461": "unchecked"
+      }
     }
   },
-  "filled_analysis": { ... },
-  "comparison": {
-    "field_mapping": [
-      {
-        "key": "field_name",
-        "template_value": "template_value",
-        "filled_value": "filled_value",
-        "similarity_score": 0.95,
-        "is_matched": true
-      }
-    ]
-  }
+  "total_fields": 77,
+  "total_checkboxes": 6,
+  "sample_ids": ["XM-15", "Xm-30", "xm-45"],
+  "analysis_requests": ["OPS 3467", "Q 61724", "T-24461"]
 }
 ```
 
-## Supported PDF Types
+## Field Types
 
-- **Text-based PDFs**: Modern PDFs with embedded text
-- **Image-based PDFs**: Scanned documents, photos
-- **Form PDFs**: Fillable forms with native form fields
-- **Mixed PDFs**: Documents with both text and images
+The system extracts and categorizes fields into different types:
+
+- **`header`**: Document titles and headers
+- **`field`**: Regular form fields and text inputs
+- **`sample_field`**: Sample-related information (ID, matrix, dates, etc.)
+- **`analysis_checkbox`**: Checkboxes that map Sample IDs to Analysis Requests
+- **`checkbox`**: Other checkboxes (technical, administrative, etc.)
+
+## Checkbox Categories
+
+The system detects and processes multiple checkbox categories:
+
+### 1. **Data Deliverables Checkboxes**
+- Level II
+- Level III
+- Level IV
+- Equis
+- Others
+
+### 2. **Rush Options**
+- Same Day
+- 1 Day
+- 2 Day
+- 3 Day
+- Others
+
+### 3. **Time Zone Collected**
+- AM
+- PT (Pacific Time)
+- MT (Mountain Time)
+- CT (Central Time)
+- ET (Eastern Time)
+
+### 4. **Reportable Checkboxes**
+- Yes
+- No
+
+### 5. **Analysis Request Checkboxes**
+- Maps Sample IDs to specific Analysis Requests
+- Shows which Analysis Requests are checked for each Sample ID
+
+### 6. **Technical Checkboxes**
+- Field Filtered if applicable
+- Other technical parameters
+
+### 7. **Administrative Checkboxes**
+- Delivery method options
+- Administrative settings
+
+### 8. **Other Checkboxes**
+- Any additional checkbox options found in the document
+
+## Container Information
+
+The system extracts:
+- **Container Size**: Numbers/values written in boxes below container size labels
+- **Container Preservative Type**: Values written in boxes below preservative type labels
+
+## Sample ID to Analysis Request Mapping
+
+The system creates a comprehensive mapping showing:
+- Which Sample IDs exist in the document
+- Which Analysis Requests are available
+- Which Analysis Requests are checked for each Sample ID
+
+## Configuration
+
+### Environment Variables
+
+Create a `.env` file with:
+
+```
+GEMINI_API_KEY=your_actual_gemini_api_key_here
+```
+
+### API Configuration
+
+- **Model**: Gemini 2.0 Flash
+- **Max file size**: 1MB per API call
+- **Supported formats**: PDF only
+- **Image resolution**: 2x scaling for better accuracy
+- **Server binding**: localhost (127.0.0.1) for better compatibility
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **API Key Error**
-   - Ensure your Gemini API key is correctly set in `config.py`
-   - Verify the API key is valid and has sufficient quota
+1. **API Key Error**: Ensure your `.env` file contains the correct API key
+2. **Installation Issues**: Try installing packages individually
+3. **PDF Not Found**: Ensure the PDF file exists in the correct path
+4. **Memory Issues**: For large PDFs, the system processes pages in batches
+5. **API Connection Error**: The server now binds to localhost (127.0.0.1) instead of 0.0.0.0
 
-2. **Installation Issues**
-   - Use Python 3.8 or higher
-   - Install dependencies in a virtual environment
-   - For Windows users, some packages may require Visual C++ build tools
+### Error Handling
 
-3. **PDF Processing Errors**
-   - Ensure PDFs are not password-protected
-   - Check if PDFs are corrupted
-   - Large PDFs may take longer to process
+The system includes comprehensive error handling:
+- Invalid PDFs
+- API connection issues
+- File processing errors
+- JSON parsing errors
+- User input validation
 
-### Performance Tips
+## File Structure
 
-- **Large PDFs**: Process page by page for better memory management
-- **Batch Processing**: Use the advanced extractor for multiple documents
-- **API Quota**: Monitor your Gemini API usage
-
-## API Limits
-
-- **Gemini 2.5**: Check [Google AI Studio](https://makersuite.google.com/app/apikey) for current limits
-- **Image Processing**: Large images may be resized for API compatibility
-- **Text Processing**: Very long documents are truncated to fit API limits
+```
+project/
+├── config.py                 # Configuration and API key setup
+├── pdf_extractor.py         # Main extraction logic (interactive)
+├── api.py                   # FastAPI web service (single endpoint)
+├── test_extraction.py       # Test suite
+├── requirements.txt         # Python dependencies
+├── README.md               # This file
+├── .env                    # API key configuration (create this)
+├── env.example             # Example environment file
+├── .gitignore             # Git ignore rules
+└── Sample Documents/       # Sample PDF files
+    └── OCR 35.pdf         # Test PDF file
+```
 
 ## Contributing
 
-Feel free to contribute improvements:
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## License
 
-This project is open source and available under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Support
 
-For issues and questions:
+For issues or questions:
 1. Check the troubleshooting section
-2. Review the code comments
-3. Open an issue on the repository
+2. Run the test suite
+3. Verify your API key configuration
+4. Check the API documentation at `/docs` when running the server
+5. Open an issue on GitHub
 
----
+## Disclaimer
 
-**Note**: This system requires an active internet connection and valid Gemini API key to function. 
+This project uses the Google Gemini API. Please ensure you have proper API access and follow Google's terms of service. The API key should be kept secure and never committed to version control. 
