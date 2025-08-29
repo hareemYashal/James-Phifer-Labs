@@ -5,7 +5,17 @@ import json
 import tempfile
 from pdf_extractor import ComprehensivePDFExtractor
 
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="PDF Extraction API", version="1.0.0", description="Single endpoint to extract all fields and checkboxes from PDF documents")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Update with your frontend URL if needed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 @app.get("/")
 async def root():
