@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 import os
 import json
 import tempfile
-from pdf_extractor import ComprehensivePDFExtractor
+from pdf_extractor_restructured import RestructuredPDFExtractor
 
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="PDF Extraction API", version="1.0.0", description="Single endpoint to extract all fields and checkboxes from PDF documents")
@@ -61,8 +61,8 @@ async def extract_pdf(file: UploadFile = File(...)):
             temp_file.write(content)
             temp_file_path = temp_file.name
         
-        # Extract from PDF using the same logic as pdf_extractor.py
-        extractor = ComprehensivePDFExtractor()
+        # Extract from PDF using the restructured extractor
+        extractor = RestructuredPDFExtractor()
         result = extractor.extract_comprehensive(temp_file_path)
         
         # Clean up temporary file
@@ -72,7 +72,7 @@ async def extract_pdf(file: UploadFile = File(...)):
         if result.get("status") == "error":
             raise HTTPException(status_code=500, detail=f"Extraction failed: {result.get('error', 'Unknown error')}")
         
-        # Return the complete result (same as pdf_extractor.py)
+        # Return the restructured result
         return JSONResponse(content=result)
         
     except Exception as e:

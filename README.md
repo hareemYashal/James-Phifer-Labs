@@ -1,6 +1,6 @@
 # Comprehensive PDF Extraction System
 
-A powerful PDF extraction system that uses Google Gemini 2.0 Flash to extract all fields, values, and checkboxes from Chain-of-Custody Analytical Request Documents.
+A powerful PDF extraction system that uses Google Gemini 2.0 Flash to extract all fields, values, and checkboxes from Chain-of-Custody Analytical Request Documents. This system provides both a web API and command-line interface for comprehensive PDF data extraction.
 
 ## Features
 
@@ -76,24 +76,23 @@ pip install numpy
 
 ## Usage
 
-### 1. Interactive Command Line Usage (Recommended)
+### 1. Direct Python Usage
 
-Run the extraction interactively with user input:
+Use the main extraction module directly:
 
-```bash
-python pdf_extractor.py
+```python
+from pdf_extractor_restructured import RestructuredPDFExtractor
+
+extractor = RestructuredPDFExtractor()
+result = extractor.extract_comprehensive('path/to/your/file.pdf')
+print(result)
 ```
 
-This will present you with a menu:
-- **Option 1**: Enter the full path to any PDF file
-- **Option 2**: Use the sample PDF (OCR 35.pdf)
-- **Option 3**: Exit the program
-
-The system will:
+This will:
 - Extract all fields and checkboxes
-- Display results in a user-friendly format
-- Save results to a JSON file
-- Allow you to process multiple PDFs in one session
+- Return structured JSON data
+- Handle all field mapping automatically
+- Process multiple pages if needed
 
 ### 2. Web API Usage
 
@@ -119,10 +118,15 @@ Once the server is running, visit:
 
 ### 3. Testing
 
-Run the test suite to verify everything is working:
+Test the extraction with sample documents:
 
-```bash
-python test_extraction.py
+```python
+from pdf_extractor_restructured import RestructuredPDFExtractor
+
+extractor = RestructuredPDFExtractor()
+result = extractor.extract_comprehensive('Sample Documents/COC_2036_001 (3).pdf')
+print("Extraction successful!")
+print(f"Found {len(result.get('sample_data_information', []))} samples")
 ```
 
 ## Response Format
@@ -328,17 +332,23 @@ The system includes comprehensive error handling:
 
 ```
 project/
-├── config.py                 # Configuration and API key setup
-├── pdf_extractor.py         # Main extraction logic (interactive)
-├── api.py                   # FastAPI web service (single endpoint)
-├── test_extraction.py       # Test suite
-├── requirements.txt         # Python dependencies
-├── README.md               # This file
-├── .env                    # API key configuration (create this)
-├── env.example             # Example environment file
-├── .gitignore             # Git ignore rules
-└── Sample Documents/       # Sample PDF files
-    └── OCR 35.pdf         # Test PDF file
+├── config.py                      # Configuration and API key setup
+├── pdf_extractor_restructured.py  # Main extraction logic with comprehensive field mapping
+├── api.py                         # FastAPI web service
+├── requirements.txt               # Python dependencies
+├── README.md                     # This file
+├── DEPLOYMENT.md                 # Deployment instructions
+├── RESTRUCTURED_RESPONSE_FORMAT.md # Response format documentation
+├── LICENSE                       # MIT License
+├── .env                          # API key configuration (create this)
+├── env.example                   # Example environment file
+├── .gitignore                    # Git ignore rules
+└── Sample Documents/             # Sample PDF files
+    ├── COC_2036_001 (3).pdf     # Main test PDF
+    ├── 2097_001.pdf             # Additional test PDF
+    ├── COC_2014r (1).pdf        # Additional test PDF
+    ├── OCR 35.pdf               # Additional test PDF
+    └── OCR 37.pdf               # Additional test PDF
 ```
 
 ## Contributing

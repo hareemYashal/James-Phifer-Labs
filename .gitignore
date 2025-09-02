@@ -1,8 +1,3 @@
-# Environment variables
-.env
-.env.local
-.env.*.local
-
 # Python
 __pycache__/
 *.py[cod]
@@ -26,7 +21,7 @@ wheels/
 *.egg
 MANIFEST
 
-# Virtual environments
+# Virtual Environment
 venv/
 env/
 ENV/
@@ -49,15 +44,31 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Generated files
-*_extraction_results.json
-*_analysis_results.json
-*_lab_extraction_results.json
-test_extraction_results.json
+# Project specific
+logs/
 *.log
+debug_ai_response_*.txt
+*_test.json
+*_fix.json
+*_restructured_test.json
+*_final_*.json
+*_ultimate_*.json
+*_perfect_*.json
+*_working_*.json
+*_complete_*.json
+*_date_time_*.json
+converted_*.json
+debug_*.txt
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
 *.tmp
 *.temp
-
-# API keys and sensitive data
-config_local.py
-secrets.json
+temp/
+tmp/
