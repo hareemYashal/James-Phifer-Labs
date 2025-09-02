@@ -1162,7 +1162,7 @@ class RestructuredPDFExtractor:
         return rc_count >= 3  # If we find 3 or more indicators, it's likely R & C format
     
     def restructure_rc_work_order_data(self, sample_data_fields, sample_ids, analysis_request, sample_analysis_map):
-        """Restructure data for R & C Work Order format"""
+        """Restructure data for R & C Work Order format with flat structure"""
         restructured_data = []
         
         # Group fields by sample ID
@@ -1176,7 +1176,13 @@ class RestructuredPDFExtractor:
                 "TIME": "NIL",
                 "SAMPLE DESCRIPTION": sample_id,
                 "Total Number of Containers": "NIL",
-                "parameters": {}
+                "Filtered (Y/N)": "NIL",
+                "Cooled (Y/N)": "NIL",
+                "Container Type (Plastic (P) / Glass (G))": "NIL",
+                "Container Volume in mL": "NIL",
+                "Sample Type (Grab (G) / Composite (C))": "NIL",
+                "Sample Source (WW, GW, DW, SW, S, Others)": "NIL",
+                "analysis_requests": []
             }
         
         # Process all fields to extract R & C Work Order data
@@ -1196,6 +1202,18 @@ class RestructuredPDFExtractor:
                     sample_groups[sample_id]["TIME"] = value
                 elif 'sample_description' in key:
                     sample_groups[sample_id]["SAMPLE DESCRIPTION"] = value
+                elif 'filtered_yes_no' in key:
+                    sample_groups[sample_id]["Filtered (Y/N)"] = value
+                elif 'cooled_yes_no' in key:
+                    sample_groups[sample_id]["Cooled (Y/N)"] = value
+                elif 'container_type_plastic_glass' in key:
+                    sample_groups[sample_id]["Container Type (Plastic (P) / Glass (G))"] = value
+                elif 'container_volume_ml' in key:
+                    sample_groups[sample_id]["Container Volume in mL"] = value
+                elif 'sample_type_grab_composite' in key:
+                    sample_groups[sample_id]["Sample Type (Grab (G) / Composite (C))"] = value
+                elif 'sample_source_ww_gw_dw_sw_s_other' in key:
+                    sample_groups[sample_id]["Sample Source (WW, GW, DW, SW, S, Others)"] = value
             
             # Handle general fields that apply to all samples
             elif field_type == 'field':
@@ -1203,66 +1221,63 @@ class RestructuredPDFExtractor:
                     for sid in sample_groups:
                         sample_groups[sid]["Total Number of Containers"] = value
         
-        # Add parameter checkboxes with their metadata
+        # Collect analysis requests for each sample
         for field in sample_data_fields:
             if field.get('type') == 'analysis_checkbox':
                 sample_id = field.get('sample_id')
                 analysis_name = field.get('analysis_name')
                 checkbox_value = field.get('value', 'unchecked')
                 
-                if sample_id in sample_groups and analysis_name:
-                    sample_groups[sample_id]["parameters"][analysis_name] = {
-                        "checkbox_value": checkbox_value,
-                        "Filtered (Y/N)": "NIL",
-                        "Cooled (Y/N)": "NIL", 
-                        "Container Type (Plastic (P) / Glass (G))": "NIL",
-                        "Container Volume in mL": "NIL",
-                        "Sample Type (Grab (G) / Composite (C))": "NIL",
-                        "Sample Source (WW, GW, DW, SW, S, Others)": "NIL"
-                    }
-        
-        # Extract metadata for each sample individually
-        sample_metadata = {}
-        for field in sample_data_fields:
-            if field.get('type') == 'sample_field':
-                key = str(field.get('key', '')).lower().replace(' ', '_').replace('-', '_')
-                value = field.get('value', 'NIL')
-                sample_id = field.get('sample_id')
+                # Handle R&C format where analysis_name might be in the key
+                if not analysis_name:
+                    key = str(field.get('key', '')).lower()
+                    if key.startswith('parameter_'):
+                        analysis_name = key.replace('parameter_', '')
                 
-                if sample_id and sample_id in sample_groups:
-                    if sample_id not in sample_metadata:
-                        sample_metadata[sample_id] = {}
-                    
-                    if 'filtered_yes_no' in key:
-                        sample_metadata[sample_id]['filtered'] = value
-                    elif 'cooled_yes_no' in key:
-                        sample_metadata[sample_id]['cooled'] = value
-                    elif 'container_type_plastic_glass' in key:
-                        sample_metadata[sample_id]['container_type'] = value
-                    elif 'container_volume_ml' in key:
-                        sample_metadata[sample_id]['container_volume'] = value
-                    elif 'sample_type_grab_composite' in key:
-                        sample_metadata[sample_id]['sample_type'] = value
-                    elif 'sample_source_ww_gw_dw_sw_s_other' in key:
-                        sample_metadata[sample_id]['sample_source'] = value
+                # For R&C format, associate all checked analysis requests with all samples
+                if checkbox_value == 'checked' and analysis_name:
+                    for sample_id in sample_groups:
+                        if analysis_name not in sample_groups[sample_id]["analysis_requests"]:
+                            sample_groups[sample_id]["analysis_requests"].append(analysis_name)
         
-        # Apply metadata to parameters for each sample
-        for sample_id in sample_groups:
-            metadata = sample_metadata.get(sample_id, {})
-            for param_name in sample_groups[sample_id]["parameters"]:
-                param_data = sample_groups[sample_id]["parameters"][param_name]
-                param_data["Filtered (Y/N)"] = metadata.get('filtered', 'NIL')
-                param_data["Cooled (Y/N)"] = metadata.get('cooled', 'NIL')
-                param_data["Container Type (Plastic (P) / Glass (G))"] = metadata.get('container_type', 'NIL')
-                param_data["Container Volume in mL"] = metadata.get('container_volume', 'NIL')
-                param_data["Sample Type (Grab (G) / Composite (C))"] = metadata.get('sample_type', 'NIL')
-                param_data["Sample Source (WW, GW, DW, SW, S, Others)"] = metadata.get('sample_source', 'NIL')
-        
-        # Convert to list format
+        # Create flat structure - one entry per analysis request
         for sample_id, sample_data in sample_groups.items():
-            restructured_data.append(sample_data)
+            if sample_data["analysis_requests"]:
+                for analysis_name in sample_data["analysis_requests"]:
+                    flat_entry = {
+                        "R & C Work Order": sample_data["R & C Work Order"],
+                        "YR__ DATE": sample_data["YR__ DATE"],
+                        "TIME": sample_data["TIME"],
+                        "SAMPLE DESCRIPTION": sample_data["SAMPLE DESCRIPTION"],
+                        "Total Number of Containers": sample_data["Total Number of Containers"],
+                        "Analysis Request": analysis_name,
+                        "Filtered (Y/N)": sample_data["Filtered (Y/N)"],
+                        "Cooled (Y/N)": sample_data["Cooled (Y/N)"],
+                        "Container Type (Plastic (P) / Glass (G))": sample_data["Container Type (Plastic (P) / Glass (G))"],
+                        "Container Volume in mL": sample_data["Container Volume in mL"],
+                        "Sample Type (Grab (G) / Composite (C))": sample_data["Sample Type (Grab (G) / Composite (C))"],
+                        "Sample Source (WW, GW, DW, SW, S, Others)": sample_data["Sample Source (WW, GW, DW, SW, S, Others)"]
+                    }
+                    restructured_data.append(flat_entry)
+            else:
+                # If no analysis requests, add a single entry with NIL analysis
+                flat_entry = {
+                    "R & C Work Order": sample_data["R & C Work Order"],
+                    "YR__ DATE": sample_data["YR__ DATE"],
+                    "TIME": sample_data["TIME"],
+                    "SAMPLE DESCRIPTION": sample_data["SAMPLE DESCRIPTION"],
+                    "Total Number of Containers": sample_data["Total Number of Containers"],
+                    "Analysis Request": "NIL",
+                    "Filtered (Y/N)": sample_data["Filtered (Y/N)"],
+                    "Cooled (Y/N)": sample_data["Cooled (Y/N)"],
+                    "Container Type (Plastic (P) / Glass (G))": sample_data["Container Type (Plastic (P) / Glass (G))"],
+                    "Container Volume in mL": sample_data["Container Volume in mL"],
+                    "Sample Type (Grab (G) / Composite (C))": sample_data["Sample Type (Grab (G) / Composite (C))"],
+                    "Sample Source (WW, GW, DW, SW, S, Others)": sample_data["Sample Source (WW, GW, DW, SW, S, Others)"]
+                }
+                restructured_data.append(flat_entry)
         
-        self.logger.info(f"R & C Work Order restructuring: created {len(restructured_data)} sample entries")
+        self.logger.info(f"R & C Work Order restructuring: created {len(restructured_data)} flat entries")
         
         return restructured_data
     
