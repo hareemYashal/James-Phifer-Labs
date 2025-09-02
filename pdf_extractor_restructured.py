@@ -221,7 +221,7 @@ class RestructuredPDFExtractor:
             extracted_fields_str = json_str[start_pos:end_pos + 1]
             
             # Create a minimal valid JSON with just the extracted_fields
-            minimal_json = f'{{"extracted_fields": {extracted_fields_str}, "all_checkboxes": {{"all_checkboxes_summary": {{}}}}, "sample_analysis_mapping": {{"sample_ids": [], "analysis_requests": [], "sample_analysis_map": {{}}}}, "sample_ids": [], "analysis_requests": []}}'
+            minimal_json = f'{{"extracted_fields": {extracted_fields_str}, "all_checkboxes": {{"all_checkboxes_summary": {{}}}}, "sample_analysis_mapping": {{"sample_ids": [], "analysis_request": [], "sample_analysis_map": {{}}}}, "sample_ids": [], "analysis_request": []}}'
             
             # Test if it's valid
             result = json.loads(minimal_json)
@@ -255,8 +255,9 @@ class RestructuredPDFExtractor:
                             break
             
             if last_complete_pos == -1:
-                self.logger.error("Could not find any complete fields")
-                return None
+                # Try a more aggressive approach - find any complete object
+                self.logger.info("Trying aggressive field extraction...")
+                return self.extract_any_complete_fields(json_str, array_start)
             
             # Extract up to the last complete field
             partial_array = json_str[array_start:last_complete_pos]
@@ -266,7 +267,7 @@ class RestructuredPDFExtractor:
                 partial_array += ']'
             
             # Create a minimal valid JSON
-            minimal_json = f'{{"extracted_fields": {partial_array}, "all_checkboxes": {{"all_checkboxes_summary": {{}}}}, "sample_analysis_mapping": {{"sample_ids": [], "analysis_requests": [], "sample_analysis_map": {{}}}}, "sample_ids": [], "analysis_requests": []}}'
+            minimal_json = f'{{"extracted_fields": {partial_array}, "all_checkboxes": {{"all_checkboxes_summary": {{}}}}, "sample_analysis_mapping": {{"sample_ids": [], "analysis_request": [], "sample_analysis_map": {{}}}}, "sample_ids": [], "analysis_request": []}}'
             
             # Test if it's valid
             result = json.loads(minimal_json)
@@ -275,6 +276,103 @@ class RestructuredPDFExtractor:
             
         except Exception as e:
             self.logger.error(f"Last complete fields extraction failed: {e}")
+            return self.extract_any_complete_fields(json_str, array_start)
+    
+    def extract_any_complete_fields(self, json_str, array_start):
+        """Extract any complete fields from the extracted_fields array using aggressive parsing"""
+        try:
+            self.logger.info("Attempting aggressive field extraction...")
+            
+            # Find all complete field objects by looking for complete { } pairs
+            fields = []
+            current_field = ""
+            brace_count = 0
+            in_field = False
+            
+            for i in range(array_start, len(json_str)):
+                char = json_str[i]
+                current_field += char
+                
+                if char == '{':
+                    if not in_field:
+                        in_field = True
+                        current_field = char
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0 and in_field:
+                        # Found a complete field
+                        try:
+                            # Test if this is a valid field object
+                            field_obj = json.loads(current_field)
+                            if isinstance(field_obj, dict) and 'key' in field_obj:
+                                fields.append(field_obj)
+                                self.logger.info(f"Found valid field: {field_obj.get('key', 'unknown')}")
+                        except:
+                            pass  # Skip invalid fields
+                        in_field = False
+                        current_field = ""
+            
+            if fields:
+                # Create a valid JSON with the extracted fields
+                fields_json = json.dumps(fields)
+                minimal_json = f'{{"extracted_fields": {fields_json}, "all_checkboxes": {{"all_checkboxes_summary": {{}}}}, "sample_analysis_mapping": {{"sample_ids": [], "analysis_request": [], "sample_analysis_map": {{}}}}, "sample_ids": [], "analysis_request": []}}'
+                
+                # Test if it's valid
+                result = json.loads(minimal_json)
+                self.logger.info(f"Successfully extracted {len(fields)} fields using aggressive parsing")
+                return minimal_json
+            else:
+                self.logger.error("No valid fields found using aggressive parsing")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Aggressive field extraction failed: {e}")
+            return None
+    
+    def emergency_field_extraction(self, json_str):
+        """Emergency field extraction - extract any recognizable field patterns"""
+        try:
+            self.logger.info("Attempting emergency field extraction...")
+            
+            # Look for any field-like patterns in the JSON string
+            fields = []
+            
+            # Find all potential field objects using regex
+            import re
+            
+            # Look for field patterns like {"key": "...", "value": "...", "type": "..."}
+            field_pattern = r'\{\s*"key"\s*:\s*"[^"]*"\s*,\s*"value"\s*:\s*"[^"]*"\s*,\s*"type"\s*:\s*"[^"]*"'
+            matches = re.findall(field_pattern, json_str, re.IGNORECASE)
+            
+            for match in matches:
+                try:
+                    # Try to parse this as a field object
+                    field_obj = json.loads(match + '}')
+                    if isinstance(field_obj, dict) and 'key' in field_obj and 'value' in field_obj:
+                        # Add default values for missing fields
+                        field_obj.setdefault('page', 1)
+                        field_obj.setdefault('method', 'AI Vision')
+                        fields.append(field_obj)
+                        self.logger.info(f"Emergency extraction found field: {field_obj.get('key', 'unknown')}")
+                except:
+                    pass  # Skip invalid matches
+            
+            if fields:
+                # Create a valid JSON with the extracted fields
+                fields_json = json.dumps(fields)
+                minimal_json = f'{{"extracted_fields": {fields_json}, "all_checkboxes": {{"all_checkboxes_summary": {{}}}}, "sample_analysis_mapping": {{"sample_ids": [], "analysis_request": [], "sample_analysis_map": {{}}}}, "sample_ids": [], "analysis_request": []}}'
+                
+                # Test if it's valid
+                result = json.loads(minimal_json)
+                self.logger.info(f"Emergency extraction found {len(fields)} fields")
+                return minimal_json
+            else:
+                self.logger.error("No fields found in emergency extraction")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Emergency field extraction failed: {e}")
             return None
         
     def extract_text_from_pdf(self, pdf_path):
@@ -398,11 +496,11 @@ class RestructuredPDFExtractor:
                 },
                 "sample_analysis_mapping": {
                     "sample_ids": [],
-                    "analysis_requests": [],
+                    "analysis_request": [],
                     "sample_analysis_map": {}
                 },
                 "sample_ids": [],
-                "analysis_requests": []
+                "analysis_request": []
             }
 
             For sample fields, use type "sample_field" and include "sample_id" field.
@@ -425,7 +523,7 @@ class RestructuredPDFExtractor:
                 "all_checkboxes_summary": {}
             }
             sample_ids = []
-            analysis_requests = []
+            analysis_request = []
             sample_analysis_map = {}
             
             for img_info in images:
@@ -506,8 +604,19 @@ class RestructuredPDFExtractor:
                                             self.logger.error(f"All JSON repair attempts failed for page {img_info['page']}: {e}")
                                             continue
                                     else:
-                                        self.logger.error(f"All JSON repair attempts failed for page {img_info['page']}")
-                                        continue
+                                        # Try emergency field extraction as last resort
+                                        self.logger.info(f"Trying emergency field extraction for page {img_info['page']}")
+                                        emergency_json = self.emergency_field_extraction(json_str)
+                                        if emergency_json:
+                                            try:
+                                                result = json.loads(emergency_json)
+                                                self.logger.info(f"Emergency field extraction successful for page {img_info['page']}")
+                                            except Exception as e:
+                                                self.logger.error(f"All JSON repair attempts failed for page {img_info['page']}: {e}")
+                                                continue
+                                        else:
+                                            self.logger.error(f"All JSON repair attempts failed for page {img_info['page']}")
+                                            continue
                             else:
                                 # Try truncated JSON repair as fallback
                                 self.logger.info(f"Trying truncated JSON repair for page {img_info['page']}")
@@ -520,8 +629,30 @@ class RestructuredPDFExtractor:
                                         self.logger.error(f"All JSON repair attempts failed for page {img_info['page']}: {e}")
                                         continue
                                 else:
-                                    self.logger.error(f"All JSON repair attempts failed for page {img_info['page']}")
-                                    continue
+                                    # Try emergency field extraction as last resort
+                                    self.logger.info(f"Trying emergency field extraction for page {img_info['page']}")
+                                    emergency_json = self.emergency_field_extraction(json_str)
+                                    if emergency_json:
+                                        try:
+                                            result = json.loads(emergency_json)
+                                            self.logger.info(f"Emergency field extraction successful for page {img_info['page']}")
+                                        except Exception as e:
+                                            self.logger.error(f"All JSON repair attempts failed for page {img_info['page']}: {e}")
+                                            continue
+                                    else:
+                                        # Try emergency field extraction as last resort
+                                        self.logger.info(f"Trying emergency field extraction for page {img_info['page']}")
+                                        emergency_json = self.emergency_field_extraction(json_str)
+                                        if emergency_json:
+                                            try:
+                                                result = json.loads(emergency_json)
+                                                self.logger.info(f"Emergency field extraction successful for page {img_info['page']}")
+                                            except Exception as e:
+                                                self.logger.error(f"All JSON repair attempts failed for page {img_info['page']}: {e}")
+                                                continue
+                                        else:
+                                            self.logger.error(f"All JSON repair attempts failed for page {img_info['page']}")
+                                            continue
                         
                         # Skip processing if no valid result was obtained
                         if result is None:
@@ -548,15 +679,24 @@ class RestructuredPDFExtractor:
                                     if sample_id and analysis_name:
                                         if sample_id not in sample_ids:
                                             sample_ids.append(sample_id)
-                                        if analysis_name not in analysis_requests:
-                                            analysis_requests.append(analysis_name)
+                                        if analysis_name not in analysis_request:
+                                            analysis_request.append(analysis_name)
                                         
                                         if sample_id not in sample_analysis_map:
                                             sample_analysis_map[sample_id] = {}
                                         sample_analysis_map[sample_id][analysis_name] = field['value']
                                         
                                 elif field.get('type') == 'sample_field':
+                                    # Handle multiple formats:
+                                    # 1. Old format: field.get('sample_id')
+                                    # 2. New format: key='sample_id', value='DW-01'
+                                    # 3. Latest format: key='dw_01_sample_id', value='DW-01'
+                                    # 4. Current format: key='customer_sample_id', value='DW-01'
                                     sample_id = field.get('sample_id')
+                                    if not sample_id:
+                                        key = field.get('key', '')
+                                        if key in ['sample_id', 'customer_sample_id', 'customer sample id'] or key.endswith('_sample_id'):
+                                            sample_id = field.get('value')
                                     if sample_id and sample_id not in sample_ids:
                                         sample_ids.append(sample_id)
                                         
@@ -597,10 +737,10 @@ class RestructuredPDFExtractor:
                                 for sid in mapping['sample_ids']:
                                     if sid not in sample_ids:
                                         sample_ids.append(sid)
-                            if 'analysis_requests' in mapping:
-                                for ar in mapping['analysis_requests']:
-                                    if ar not in analysis_requests:
-                                        analysis_requests.append(ar)
+                            if 'analysis_request' in mapping:
+                                for ar in mapping['analysis_request']:
+                                    if ar not in analysis_request:
+                                        analysis_request.append(ar)
                             if 'sample_analysis_map' in mapping:
                                 for sid, analysis_map in mapping['sample_analysis_map'].items():
                                     if sid not in sample_analysis_map:
@@ -618,18 +758,18 @@ class RestructuredPDFExtractor:
             self.logger.info(f"Total fields: {len(all_fields)}")
             self.logger.info(f"Total checkboxes: {len(all_checkboxes['all_checkboxes_summary'])}")
             self.logger.info(f"Sample IDs: {len(sample_ids)}")
-            self.logger.info(f"Analysis requests: {len(analysis_requests)}")
+            self.logger.info(f"Analysis requests: {len(analysis_request)}")
             
             return {
                 'extracted_fields': all_fields,
                 'all_checkboxes': all_checkboxes,
                 'sample_analysis_mapping': {
                     'sample_ids': sample_ids,
-                    'analysis_requests': analysis_requests,
+                    'analysis_request': analysis_request,
                     'sample_analysis_map': sample_analysis_map
                 },
                 'sample_ids': sample_ids,
-                'analysis_requests': analysis_requests
+                'analysis_request': analysis_request
             }
             
         except Exception as e:
@@ -651,32 +791,48 @@ class RestructuredPDFExtractor:
                 },
                 'sample_analysis_mapping': {
                     'sample_ids': [],
-                    'analysis_requests': [],
+                    'analysis_request': [],
                     'sample_analysis_map': {}
                 },
                 'sample_ids': [],
-                'analysis_requests': []
+                'analysis_request': []
             }
     
-    def restructure_sample_data(self, sample_data_fields, sample_ids, analysis_requests, sample_analysis_map):
+    def restructure_sample_data(self, sample_data_fields, sample_ids, analysis_request, sample_analysis_map):
         """Restructure sample data to group by Customer Sample ID"""
         restructured_data = []
         
         # Group fields by sample ID for better processing
         sample_field_groups = {}
+        current_sample_id = None
+        
         for field in sample_data_fields:
             if field.get('type') == 'sample_field':
+                # Check if this field has a sample_id attribute
                 sample_id = field.get('sample_id')
                 if sample_id:
+                    current_sample_id = sample_id
                     if sample_id not in sample_field_groups:
                         sample_field_groups[sample_id] = []
                     sample_field_groups[sample_id].append(field)
+                else:
+                    # If no sample_id attribute, check if this is a sample_id field itself
+                    key = str(field.get('key', '')).lower()
+                    if key == 'sample_id':
+                        current_sample_id = field.get('value')
+                        if current_sample_id and current_sample_id not in sample_field_groups:
+                            sample_field_groups[current_sample_id] = []
+                    elif current_sample_id:
+                        # Associate this field with the current sample ID
+                        if current_sample_id not in sample_field_groups:
+                            sample_field_groups[current_sample_id] = []
+                        sample_field_groups[current_sample_id].append(field)
         
         # Create a mapping of field types to their values for fallback
         field_type_mapping = {}
         for field in sample_data_fields:
             if field.get('type') == 'sample_field':
-                key = field.get('key', '').lower()
+                key = str(field.get('key', '')).lower()
                 value = field.get('value', 'NIL')
                 if key not in field_type_mapping:
                     field_type_mapping[key] = []
@@ -694,17 +850,100 @@ class RestructuredPDFExtractor:
                 "# Cont": "NIL",
                 "Residual Chloride Result": "NIL",
                 "Residual Chloride Units": "NIL",
-                "analysis_requests": {}
+                "analysis_request": {}
             }
             
             # Extract sample-specific fields from the grouped data
             if sample_id in sample_field_groups:
                 for field in sample_field_groups[sample_id]:
-                    key = field.get('key', '').lower()
+                    key = str(field.get('key', '')).lower()
                     value = field.get('value', 'NIL')
                     
                     # Map field names to our structure with more comprehensive matching
                     # Handle field names that include sample ID (e.g., "matrix_dw_01", "collected_date_start_01", "dw_01_matrix", "matrix_01")
+                    if key.startswith("matrix_") or key.endswith("_matrix") or key == "matrix":
+                        sample_info["Matrix"] = value
+                    elif key.startswith("comp_grab_") or key.endswith("_comp_grab") or key in ["comp/grab", "comp_grab", "composite_grab"]:
+                        sample_info["Comp/Grab"] = value
+                    elif key.startswith("collected_date_start_") or key.endswith("_collected_date_start") or key in ["composite_start_date", "composite start date"]:
+                        sample_info["Composite Start Date"] = value
+                    elif key.startswith("collected_time_start_") or key.endswith("_collected_time_start") or key == "time_collected_composite_start" or key in ["composite_start_time", "composite start time"]:
+                        sample_info["Composite Start Time"] = value
+                    elif key.startswith("collected_date_end_") or key.endswith("_collected_date_end") or key in ["composite_end_date", "composite end date", "collected_composite_end_date", "collected or composite end date", "date_collected_composite_end", "collected_or_composite_end_date"] or key.startswith("collected_composite_end_date_"):
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key.startswith("collected_time_end_") or key.endswith("_collected_time_end") or key == "time_collected_composite_end" or key in ["composite_end_time", "composite end time", "collected_composite_end_time", "collected or composite end time", "collected_or_composite_end_time"] or key.startswith("collected_composite_end_time_"):
+                        sample_info["Composite or Collected End Time"] = value
+                    # Handle the exact field names that the AI is currently using
+                    elif key == "collected_or_composite_end_date":
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key == "collected_or_composite_end_time":
+                        sample_info["Composite or Collected End Time"] = value
+                    # Handle the new field naming patterns from the current AI extraction
+                    elif key.startswith("dw_") and key.endswith("_matrix"):
+                        sample_info["Matrix"] = value
+                    elif key.startswith("matrix_dw-") or key.startswith("matrix_dw_"):
+                        sample_info["Matrix"] = value
+                    elif key.startswith("dw_") and key.endswith("_comp_grab"):
+                        sample_info["Comp/Grab"] = value
+                    elif key.startswith("comp_grab_dw-") or key.startswith("comp_grab_dw_"):
+                        sample_info["Comp/Grab"] = value
+                    elif key.startswith("dw_") and key.endswith("_collected_or_composite_end_date"):
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key.startswith("collected_composite_end_date_dw-") or key.startswith("collected_or_composite_end_date_dw-"):
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key.startswith("dw_") and key.endswith("_collected_or_composite_end_time"):
+                        sample_info["Composite or Collected End Time"] = value
+                    elif key.startswith("collected_composite_end_time_dw-") or key.startswith("collected_or_composite_end_time_dw-"):
+                        sample_info["Composite or Collected End Time"] = value
+                    elif key.startswith("dw_") and key.endswith("_number_of_containers"):
+                        sample_info["# Cont"] = value
+                    elif key.startswith("number_of_containers_dw-") or key.startswith("number_of_containers_dw_"):
+                        sample_info["# Cont"] = value
+                    # Handle generic "date" and "time" fields - these should map to end date/time based on the document structure
+                    elif key == "date" and sample_info["Composite or Collected End Date"] == "NIL":
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key == "time" and sample_info["Composite or Collected End Time"] == "NIL":
+                        sample_info["Composite or Collected End Time"] = value
+                    # Handle numbered field patterns like "date_01", "time_01", etc.
+                    elif key.startswith("date_") and sample_info["Composite or Collected End Date"] == "NIL":
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key.startswith("time_") and sample_info["Composite or Collected End Time"] == "NIL":
+                        sample_info["Composite or Collected End Time"] = value
+                    elif key.startswith("number_containers_") or key.endswith("_number_containers") or key in ["# cont", "# cont.", "cont", "number_of_containers", "number of containers", "num_containers", "#_cont"]:
+                        sample_info["# Cont"] = value
+                    elif key.startswith("residual_chlorine_result_") or key.endswith("_residual_chlorine_result") or key in ["result", "residual chlorine result", "residual chloride result", "residual_chlorine_result", "residual_chloride_result"]:
+                        sample_info["Residual Chloride Result"] = value
+                    elif key.startswith("residual_chlorine_units_") or key.endswith("_residual_chlorine_units") or key in ["units", "residual chlorine units", "residual chloride units", "residual_chlorine_units", "residual_chloride_units"]:
+                        sample_info["Residual Chloride Units"] = value
+            
+            # Additional comprehensive field mapping - handle cases where fields might not be properly grouped by sample ID
+            # This is a more aggressive approach to find and map fields that might be extracted but not properly associated
+            for field in sample_data_fields:
+                if field.get('type') == 'sample_field':
+                    key = str(field.get('key', '')).lower()
+                    value = field.get('value', 'NIL')
+                    
+                    # Skip if we already have a value for this field
+                    if sample_info["Matrix"] != "NIL" and (key.startswith("matrix_") or key.endswith("_matrix") or key == "matrix"):
+                        continue
+                    if sample_info["Comp/Grab"] != "NIL" and (key.startswith("comp_grab_") or key.endswith("_comp_grab") or key in ["comp/grab", "comp_grab", "composite_grab"]):
+                        continue
+                    if sample_info["Composite Start Date"] != "NIL" and (key.startswith("collected_date_start_") or key.endswith("_collected_date_start") or key in ["composite_start_date", "composite start date"]):
+                        continue
+                    if sample_info["Composite Start Time"] != "NIL" and (key.startswith("collected_time_start_") or key.endswith("_collected_time_start") or key == "time_collected_composite_start" or key in ["composite_start_time", "composite start time"]):
+                        continue
+                    if sample_info["Composite or Collected End Date"] != "NIL" and (key.startswith("collected_date_end_") or key.endswith("_collected_date_end") or key in ["composite_end_date", "composite end date", "collected_composite_end_date", "collected or composite end date", "date_collected_composite_end", "collected_or_composite_end_date"] or key.startswith("collected_composite_end_date_")):
+                        continue
+                    if sample_info["Composite or Collected End Time"] != "NIL" and (key.startswith("collected_time_end_") or key.endswith("_collected_time_end") or key == "time_collected_composite_end" or key in ["composite_end_time", "composite end time", "collected_composite_end_time", "collected or composite end time", "collected_or_composite_end_time"] or key.startswith("collected_composite_end_time_")):
+                        continue
+                    if sample_info["# Cont"] != "NIL" and (key.startswith("number_containers_") or key.endswith("_number_containers") or key in ["# cont", "# cont.", "cont", "number_of_containers", "number of containers", "num_containers", "#_cont"]):
+                        continue
+                    if sample_info["Residual Chloride Result"] != "NIL" and (key.startswith("residual_chlorine_result_") or key.endswith("_residual_chlorine_result") or key in ["result", "residual chlorine result", "residual chloride result", "residual_chlorine_result", "residual_chloride_result"]):
+                        continue
+                    if sample_info["Residual Chloride Units"] != "NIL" and (key.startswith("residual_chlorine_units_") or key.endswith("_residual_chlorine_units") or key in ["units", "residual chlorine units", "residual chloride units", "residual_chlorine_units", "residual_chloride_units"]):
+                        continue
+                    
+                    # Apply the same mapping logic but for ungrouped fields
                     if key.startswith("matrix_") or key.endswith("_matrix") or key == "matrix":
                         sample_info["Matrix"] = value
                     elif key.startswith("comp_grab_") or key.endswith("_comp_grab") or key in ["comp/grab", "comp_grab", "composite_grab"]:
@@ -733,18 +972,57 @@ class RestructuredPDFExtractor:
                         sample_info["Residual Chloride Result"] = value
                     elif key.startswith("residual_chlorine_units_") or key.endswith("_residual_chlorine_units") or key in ["units", "residual chlorine units", "residual chloride units", "residual_chlorine_units", "residual_chloride_units"]:
                         sample_info["Residual Chloride Units"] = value
+                    # Additional field patterns that might be used by AI
+                    elif key in ["start_date", "start_time", "end_date", "end_time", "collection_date", "collection_time"]:
+                        if key in ["start_date", "collection_date"] and sample_info["Composite Start Date"] == "NIL":
+                            sample_info["Composite Start Date"] = value
+                        elif key in ["start_time", "collection_time"] and sample_info["Composite Start Time"] == "NIL":
+                            sample_info["Composite Start Time"] = value
+                        elif key == "end_date" and sample_info["Composite or Collected End Date"] == "NIL":
+                            sample_info["Composite or Collected End Time"] = value
+                        elif key == "end_time" and sample_info["Composite or Collected End Time"] == "NIL":
+                            sample_info["Composite or Collected End Time"] = value
+                    # Handle container count variations
+                    elif key in ["containers", "container_count", "num_containers", "container_number", "no_containers"]:
+                        sample_info["# Cont"] = value
+                    # Handle residual chlorine variations
+                    elif key in ["residual_chlorine", "residual_chloride", "chlorine_result", "chloride_result", "chlorine_units", "chloride_units"]:
+                        if "result" in key and sample_info["Residual Chloride Result"] == "NIL":
+                            sample_info["Residual Chloride Result"] = value
+                        elif "units" in key and sample_info["Residual Chloride Units"] == "NIL":
+                            sample_info["Residual Chloride Units"] = value
+            
+            # Handle special case where Matrix field contains both Matrix and Comp/Grab information
+            # e.g., "DW G" should be split into Matrix="DW" and Comp/Grab="G"
+            if sample_info["Matrix"] != "NIL" and sample_info["Comp/Grab"] == "NIL":
+                matrix_value = sample_info["Matrix"]
+                if " " in matrix_value and len(matrix_value.split()) == 2:
+                    parts = matrix_value.split()
+                    sample_info["Matrix"] = parts[0]  # First part is Matrix
+                    sample_info["Comp/Grab"] = parts[1]  # Second part is Comp/Grab
             
             # If we still have NIL values, try to fill them from the general field mapping
             # This handles cases where fields are extracted but not explicitly associated with sample IDs
             if sample_info["Matrix"] == "NIL":
                 # Look for matrix fields with sample-specific naming
                 for field_key in field_type_mapping:
-                    if (field_key.startswith("matrix_") or field_key.endswith("_matrix")) and field_type_mapping[field_key]:
+                    if (field_key.startswith("matrix_") or field_key.endswith("_matrix") or (field_key.startswith("dw_") and field_key.endswith("_matrix"))) and field_type_mapping[field_key]:
                         for matrix_value in field_type_mapping[field_key]:
                             if matrix_value != "NIL":
                                 sample_info["Matrix"] = matrix_value
                                 break
                         if sample_info["Matrix"] != "NIL":
+                            break
+            
+            if sample_info["Comp/Grab"] == "NIL":
+                # Look for comp_grab fields with sample-specific naming
+                for field_key in field_type_mapping:
+                    if (field_key.startswith("comp_grab_") or field_key.endswith("_comp_grab") or (field_key.startswith("dw_") and field_key.endswith("_comp_grab"))) and field_type_mapping[field_key]:
+                        for comp_grab_value in field_type_mapping[field_key]:
+                            if comp_grab_value != "NIL":
+                                sample_info["Comp/Grab"] = comp_grab_value
+                                break
+                        if sample_info["Comp/Grab"] != "NIL":
                             break
             
             if sample_info["Composite Start Date"] == "NIL":
@@ -772,7 +1050,7 @@ class RestructuredPDFExtractor:
             if sample_info["Composite or Collected End Date"] == "NIL":
                 # Look for collected_date_end fields or generic "date" fields
                 for field_key in field_type_mapping:
-                    if ((field_key.startswith("collected_date_end_") or field_key.endswith("_collected_date_end")) or field_key in ["date", "date_collected_composite_end", "collected_or_composite_end_date"] or field_key.startswith("date_") or field_key.startswith("collected_composite_end_date_")) and field_type_mapping[field_key]:
+                    if ((field_key.startswith("collected_date_end_") or field_key.endswith("_collected_date_end")) or field_key in ["date", "date_collected_composite_end", "collected_or_composite_end_date"] or field_key.startswith("date_") or field_key.startswith("collected_composite_end_date_") or (field_key.startswith("dw_") and field_key.endswith("_collected_or_composite_end_date"))) and field_type_mapping[field_key]:
                         for date_value in field_type_mapping[field_key]:
                             if date_value != "NIL":
                                 sample_info["Composite or Collected End Date"] = date_value
@@ -783,7 +1061,7 @@ class RestructuredPDFExtractor:
             if sample_info["Composite or Collected End Time"] == "NIL":
                 # Look for collected_time_end fields or time_collected_composite_end or generic "time" fields
                 for field_key in field_type_mapping:
-                    if ((field_key.startswith("collected_time_end_") or field_key.endswith("_collected_time_end") or field_key == "time_collected_composite_end") or field_key in ["time", "collected_or_composite_end_time"] or field_key.startswith("time_") or field_key.startswith("collected_composite_end_time_")) and field_type_mapping[field_key]:
+                    if ((field_key.startswith("collected_time_end_") or field_key.endswith("_collected_time_end") or field_key == "time_collected_composite_end") or field_key in ["time", "collected_or_composite_end_time"] or field_key.startswith("time_") or field_key.startswith("collected_composite_end_time_") or (field_key.startswith("dw_") and field_key.endswith("_collected_or_composite_end_time"))) and field_type_mapping[field_key]:
                         for time_value in field_type_mapping[field_key]:
                             if time_value != "NIL":
                                 sample_info["Composite or Collected End Time"] = time_value
@@ -794,7 +1072,7 @@ class RestructuredPDFExtractor:
             if sample_info["# Cont"] == "NIL":
                 # Look for number_containers fields or num_containers or #_cont
                 for field_key in field_type_mapping:
-                    if (field_key.startswith("number_containers_") or field_key.endswith("_number_containers") or field_key in ["num_containers", "#_cont"]) and field_type_mapping[field_key]:
+                    if (field_key.startswith("number_containers_") or field_key.endswith("_number_containers") or field_key in ["num_containers", "#_cont"] or (field_key.startswith("dw_") and field_key.endswith("_number_of_containers"))) and field_type_mapping[field_key]:
                         for cont_value in field_type_mapping[field_key]:
                             if cont_value != "NIL":
                                 sample_info["# Cont"] = cont_value
@@ -825,27 +1103,41 @@ class RestructuredPDFExtractor:
                             break
             
             # Create separate entries for each checked analysis request
-            if sample_id in sample_analysis_map:
-                checked_analyses = []
-                for analysis_name in analysis_requests:
-                    checkbox_value = sample_analysis_map[sample_id].get(analysis_name, 'unchecked')
-                    if checkbox_value == 'checked':
+            # First, find all analysis checkboxes for this sample
+            checked_analyses = []
+            for field in sample_data_fields:
+                if (field.get('type') == 'analysis_checkbox' and 
+                    field.get('sample_id') == sample_id and 
+                    field.get('value') == 'checked'):
+                    # Extract analysis name from the key (e.g., "8240_checkbox" -> "8240" or "analysis_8240" -> "8240")
+                    key = field.get('key', '')
+                    if key.endswith('_checkbox'):
+                        analysis_name = key[:-9]  # Remove "_checkbox" suffix
+                        # Convert to uppercase for consistency
+                        if analysis_name.lower() == 'tph':
+                            analysis_name = 'TPH'
+                        else:
+                            analysis_name = analysis_name.upper()
                         checked_analyses.append(analysis_name)
-                
-                # If there are checked analyses, create separate entries for each
-                if checked_analyses:
-                    for analysis_name in checked_analyses:
-                        # Create a copy of the sample info for each checked analysis
-                        sample_entry = sample_info.copy()
-                        sample_entry["analysis_requests"] = analysis_name
-                        restructured_data.append(sample_entry)
-                else:
-                    # If no analyses are checked, add the sample with empty analysis_requests
-                    sample_info["analysis_requests"] = ""
-                    restructured_data.append(sample_info)
+                    elif key.startswith('analysis_'):
+                        analysis_name = key[9:]  # Remove "analysis_" prefix
+                        # Convert to uppercase for consistency
+                        if analysis_name.lower() == 'tph':
+                            analysis_name = 'TPH'
+                        else:
+                            analysis_name = analysis_name.upper()
+                        checked_analyses.append(analysis_name)
+            
+            # If there are checked analyses, create separate entries for each
+            if checked_analyses:
+                for analysis_name in checked_analyses:
+                    # Create a copy of the sample info for each checked analysis
+                    sample_entry = sample_info.copy()
+                    sample_entry["analysis_request"] = analysis_name
+                    restructured_data.append(sample_entry)
             else:
-                # If no analysis mapping exists, add the sample with empty analysis_requests
-                sample_info["analysis_requests"] = ""
+                # If no analyses are checked, add the sample with NIL analysis_request
+                sample_info["analysis_request"] = "NIL"
                 restructured_data.append(sample_info)
         
         return restructured_data
@@ -859,7 +1151,7 @@ class RestructuredPDFExtractor:
             'sample_type_grab_composite', 'sample_source_ww_gw_dw_sw_s_other'
         ]
         
-        field_keys = [field.get('key', '').lower().replace(' ', '_').replace('-', '_') for field in extracted_fields]
+        field_keys = [str(field.get('key', '')).lower().replace(' ', '_').replace('-', '_') for field in extracted_fields]
         
         # Check if we have R & C Work Order indicators
         rc_count = sum(1 for indicator in rc_indicators if any(indicator in key for key in field_keys))
@@ -869,7 +1161,7 @@ class RestructuredPDFExtractor:
         
         return rc_count >= 3  # If we find 3 or more indicators, it's likely R & C format
     
-    def restructure_rc_work_order_data(self, sample_data_fields, sample_ids, analysis_requests, sample_analysis_map):
+    def restructure_rc_work_order_data(self, sample_data_fields, sample_ids, analysis_request, sample_analysis_map):
         """Restructure data for R & C Work Order format"""
         restructured_data = []
         
@@ -890,7 +1182,7 @@ class RestructuredPDFExtractor:
         # Process all fields to extract R & C Work Order data
         for field in sample_data_fields:
             field_type = field.get('type', '')
-            key = field.get('key', '').lower().replace(' ', '_').replace('-', '_')
+            key = str(field.get('key', '')).lower().replace(' ', '_').replace('-', '_')
             value = field.get('value', 'NIL')
             sample_id = field.get('sample_id')
             
@@ -933,7 +1225,7 @@ class RestructuredPDFExtractor:
         sample_metadata = {}
         for field in sample_data_fields:
             if field.get('type') == 'sample_field':
-                key = field.get('key', '').lower().replace(' ', '_').replace('-', '_')
+                key = str(field.get('key', '')).lower().replace(' ', '_').replace('-', '_')
                 value = field.get('value', 'NIL')
                 sample_id = field.get('sample_id')
                 
@@ -1011,7 +1303,9 @@ class RestructuredPDFExtractor:
             
             # Separate fields into general and sample categories
             for field in ai_results['extracted_fields']:
-                field_key = field.get('key', '').lower()
+                # Ensure field_key is a string to prevent .lower() errors
+                field_key_raw = field.get('key', '')
+                field_key = str(field_key_raw).lower() if field_key_raw else ''
                 field_type = field.get('type', '')
                 
                 # Check if field is sample-related
@@ -1035,7 +1329,7 @@ class RestructuredPDFExtractor:
                 restructured_sample_data = self.restructure_rc_work_order_data(
                     sample_data_information,
                     ai_results['sample_ids'],
-                    ai_results['analysis_requests'],
+                    ai_results['analysis_request'],
                     ai_results['sample_analysis_mapping']['sample_analysis_map']
                 )
             else:
@@ -1043,7 +1337,7 @@ class RestructuredPDFExtractor:
                 restructured_sample_data = self.restructure_sample_data(
                     sample_data_information,
                     ai_results['sample_ids'],
-                    ai_results['analysis_requests'],
+                    ai_results['analysis_request'],
                     ai_results['sample_analysis_mapping']['sample_analysis_map']
                 )
             
@@ -1073,7 +1367,9 @@ class RestructuredPDFExtractor:
             }
 
 def main():
-    """Interactive PDF extraction with user input"""
+    """PDF extraction with command line support"""
+    import sys
+    
     print("🔍 Restructured PDF Extraction System")
     print("=" * 50)
     print("This system extracts all fields, values, and checkboxes from PDF documents")
@@ -1083,6 +1379,42 @@ def main():
     # Initialize extractor
     extractor = RestructuredPDFExtractor()
     
+    # Check if PDF path is provided as command line argument
+    if len(sys.argv) > 1:
+        pdf_path = sys.argv[1]
+        if not os.path.exists(pdf_path):
+            print(f"❌ File not found: {pdf_path}")
+            return
+        
+        print(f"\n🚀 Starting extraction for: {pdf_path}")
+        print("⏳ This may take a few moments...")
+        
+        try:
+            result = extractor.extract_comprehensive(pdf_path)
+            
+            if result.get("status") != "error":
+                print("\n✅ Extraction completed successfully!")
+                print(f"📊 Total fields extracted: {len(result.get('extracted_fields', []))}")
+                print(f"📋 General Information: {len(result.get('general_information', []))}")
+                print(f"🔬 Sample Data Information: {len(result.get('sample_data_information', []))}")
+                
+                # Save results to file
+                output_file = f"{os.path.basename(pdf_path).replace('.pdf', '')}_restructured_results.json"
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    json.dump(result, f, indent=2, ensure_ascii=False)
+                print(f"💾 Results saved to: {output_file}")
+                
+            else:
+                print(f"❌ Extraction failed: {result.get('error', 'Unknown error')}")
+                
+        except Exception as e:
+            print(f"❌ Error during extraction: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        return
+    
+    # Interactive mode if no command line argument
     while True:
         print("\nOptions:")
         print("1. Extract from a PDF file")

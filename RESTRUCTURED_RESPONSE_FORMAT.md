@@ -71,7 +71,7 @@ Contains structured sample data grouped by Customer Sample ID. Each sample inclu
   "# Cont": "1",
   "Residual Chloride Result": "-",
   "Residual Chloride Units": "-",
-  "analysis_requests": {
+  "analysis_request": {
     "8240": "unchecked",
     "TPH": "unchecked",
     "8080": "unchecked"
@@ -123,7 +123,7 @@ Removed unnecessary sections like:
 - `all_checkboxes`
 - `sample_analysis_mapping`
 - `sample_ids`
-- `analysis_requests`
+- `analysis_request`
 - `extraction_summary`
 - `extraction_methods`
 

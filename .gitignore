@@ -72,3 +72,9 @@ debug_*.txt
 *.temp
 temp/
 tmp/
+
+# Test and debug files
+test_*.py
+debug_*.py
+*_test.py
+*_debug.py

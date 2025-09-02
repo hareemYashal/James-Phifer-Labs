@@ -208,7 +208,7 @@ The system returns JSON in the exact format you specified:
   },
   "sample_analysis_mapping": {
     "sample_ids": ["XM-15", "Xm-30", "xm-45"],
-    "analysis_requests": ["OPS 3467", "Q 61724", "T-24461"],
+    "analysis_request": ["OPS 3467", "Q 61724", "T-24461"],
     "sample_analysis_map": {
       "XM-15": {
         "OPS 3467": "checked",
@@ -220,7 +220,7 @@ The system returns JSON in the exact format you specified:
   "total_fields": 77,
   "total_checkboxes": 6,
   "sample_ids": ["XM-15", "Xm-30", "xm-45"],
-  "analysis_requests": ["OPS 3467", "Q 61724", "T-24461"]
+  "analysis_request": ["OPS 3467", "Q 61724", "T-24461"]
 }
 ```
 
