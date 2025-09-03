@@ -14,7 +14,7 @@ class RestructuredPDFExtractor:
     def __init__(self):
         self.api_key = GEMINI_API_KEY
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
         
         # Setup logging
         self.setup_logging()
@@ -24,14 +24,17 @@ class RestructuredPDFExtractor:
         # Create logs directory if it doesn't exist
         if not os.path.exists('logs'):
             os.makedirs('logs')
+        
+        # Clean up old log files to prevent disk space issues
+        self.cleanup_old_logs()
             
         # Create timestamp for log file
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_filename = f"logs/pdf_extraction_{timestamp}.log"
         
-        # Configure logging
+        # Configure logging with reduced verbosity
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging.WARNING,  # Only log warnings and errors
             format='%(asctime)s - %(levelname)s - %(message)s',
             handlers=[
                 logging.FileHandler(log_filename),
@@ -40,8 +43,28 @@ class RestructuredPDFExtractor:
         )
         
         self.logger = logging.getLogger(__name__)
-        self.logger.info(f"Restructured PDF Extractor initialized. Log file: {log_filename}")
-        print(f"Logging initialized. Log file: {log_filename}")
+        self.logger.info(f"Restructured PDF Extractor initialized with Gemini 2.5 Flash. Log file: {log_filename}")
+        print(f"Logging initialized with Gemini 2.5 Flash. Log file: {log_filename}")
+        
+    def cleanup_old_logs(self):
+        """Clean up old log files to prevent disk space issues"""
+        try:
+            import glob
+            import time
+            
+            # Keep only the last 5 log files
+            log_files = glob.glob('logs/pdf_extraction_*.log')
+            if len(log_files) > 5:
+                # Sort by modification time and remove oldest
+                log_files.sort(key=os.path.getmtime)
+                for old_log in log_files[:-5]:
+                    try:
+                        os.remove(old_log)
+                        print(f"Cleaned up old log file: {old_log}")
+                    except:
+                        pass
+        except Exception as e:
+            print(f"Warning: Could not clean up old logs: {e}")
         
     def repair_json(self, json_str):
         """Try to repair common JSON issues"""
@@ -461,6 +484,14 @@ class RestructuredPDFExtractor:
             4. If any field is empty or not filled, write "NIL" as the value
             5. Include all text fields, headers, sample information, analysis checkboxes, and any other visible elements
             6. For R & C Work Order format, extract parameter checkboxes with their associated metadata (Filtered, Cooled, Container Type, etc.)
+            
+            CRITICAL ANALYSIS CHECKBOX EXTRACTION:
+            - Look for analysis code checkboxes (8240, 8080, TPH, etc.) for each sample
+            - If a checkbox is marked/checked for a sample, set value to "checked"
+            - If a checkbox is empty/unmarked for a sample, set value to "unchecked"
+            - Use type "analysis_checkbox" and include both "sample_id" and "analysis_name" fields
+            - Example: {"key": "analysis_8240_dw01", "value": "checked", "type": "analysis_checkbox", "sample_id": "DW-01", "analysis_name": "8240"}
+            - Pay special attention to which analysis codes are checked for each sample ID
 
             SPECIAL INSTRUCTIONS FOR R & C WORK ORDER FORMAT:
             If you see fields like "R & C Work Order", "YR__ DATE", "TIME", "SAMPLE DESCRIPTION", "Total Number of Containers", 
@@ -537,10 +568,31 @@ class RestructuredPDFExtractor:
                     image = Image.open(io.BytesIO(image_data))
                     self.logger.info(f"Image created successfully. Size: {image.size}")
                     
-                    # Analyze with Gemini
+                    # Analyze with Gemini with retry mechanism
                     self.logger.info(f"Sending request to Gemini AI for page {img_info['page']}")
-                    response = self.model.generate_content([prompt, image])
-                    response_text = response.text
+                    response = None
+                    response_text = ""
+                    
+                    # Retry mechanism for AI requests
+                    max_retries = 3
+                    for attempt in range(max_retries):
+                        try:
+                            response = self.model.generate_content([prompt, image])
+                            response_text = response.text
+                            if response_text and len(response_text) > 100:  # Basic quality check
+                                break
+                            else:
+                                self.logger.warning(f"Attempt {attempt + 1}: Poor response quality, retrying...")
+                        except Exception as e:
+                            self.logger.warning(f"Attempt {attempt + 1} failed: {e}")
+                            if attempt == max_retries - 1:
+                                raise e
+                            import time
+                            time.sleep(2)  # Wait before retry
+                    
+                    if not response_text:
+                        self.logger.error(f"All retry attempts failed for page {img_info['page']}")
+                        continue
                     
                     self.logger.info(f"AI Response received for page {img_info['page']}")
                     self.logger.info(f"Response length: {len(response_text)} characters")
@@ -798,6 +850,135 @@ class RestructuredPDFExtractor:
                 'analysis_request': []
             }
     
+    def validate_field_value(self, field_key, field_value, field_type):
+        """Validate and score field values for confidence"""
+        key = str(field_key).lower().strip()
+        value = str(field_value).strip() if field_value else ""
+        
+        confidence_score = 0.5  # Default medium confidence
+        validation_notes = []
+        
+        # Skip validation for NIL values
+        if value.upper() in ['NIL', 'N/A', '-', '', 'NULL', 'EMPTY']:
+            return "NIL", confidence_score, ["Empty field"]
+        
+        # Email validation
+        if 'email' in key:
+            import re
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if re.match(email_pattern, value):
+                confidence_score = 0.9
+                validation_notes.append("Valid email format")
+            else:
+                confidence_score = 0.3
+                validation_notes.append("Invalid email format")
+        
+        # Phone number validation
+        elif 'phone' in key:
+            import re
+            phone_pattern = r'^[\d\s\-\(\)\+\.]+$'
+            if re.match(phone_pattern, value) and len(value.replace(' ', '').replace('-', '').replace('(', '').replace(')', '').replace('+', '').replace('.', '')) >= 10:
+                confidence_score = 0.8
+                validation_notes.append("Valid phone format")
+            else:
+                confidence_score = 0.4
+                validation_notes.append("Questionable phone format")
+        
+        # Date validation
+        elif 'date' in key:
+            import re
+            date_patterns = [
+                r'^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$',  # MM-DD-YY or MM/DD/YYYY
+                r'^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$',  # DD-MM-YY or DD/MM/YYYY
+                r'^\d{4}[-/]\d{1,2}[-/]\d{1,2}$'     # YYYY-MM-DD
+            ]
+            if any(re.match(pattern, value) for pattern in date_patterns):
+                confidence_score = 0.8
+                validation_notes.append("Valid date format")
+            else:
+                confidence_score = 0.4
+                validation_notes.append("Questionable date format")
+        
+        # Time validation
+        elif 'time' in key:
+            import re
+            time_patterns = [
+                r'^\d{1,2}:\d{2}$',      # HH:MM
+                r'^\d{3,4}$',            # HHMM
+                r'^\d{1,2}:\d{2}\s*[AP]M$'  # HH:MM AM/PM
+            ]
+            if any(re.match(pattern, value.upper()) for pattern in time_patterns):
+                confidence_score = 0.8
+                validation_notes.append("Valid time format")
+            else:
+                confidence_score = 0.4
+                validation_notes.append("Questionable time format")
+        
+        # Sample ID validation
+        elif 'sample' in key and 'id' in key:
+            import re
+            if re.match(r'^[A-Z]{1,3}-\d{1,3}[A-Z]?$', value.upper()):
+                confidence_score = 0.9
+                validation_notes.append("Valid sample ID format")
+            elif re.match(r'^[A-Z]{1,3}\d{1,3}[A-Z]?$', value.upper()):
+                confidence_score = 0.8
+                validation_notes.append("Valid sample ID format (no dash)")
+            else:
+                confidence_score = 0.5
+                validation_notes.append("Non-standard sample ID format")
+        
+        # Analysis code validation
+        elif 'analysis' in key or any(code in value.upper() for code in ['8240', '8080', 'TPH', '8260', '8270']):
+            import re
+            if re.match(r'^\d{4}$', value) or value.upper() in ['TPH', 'VOC', 'SVOC', 'PESTICIDES']:
+                confidence_score = 0.9
+                validation_notes.append("Valid analysis code")
+            else:
+                confidence_score = 0.6
+                validation_notes.append("Questionable analysis code")
+        
+        # Matrix type validation
+        elif 'matrix' in key:
+            valid_matrices = ['DW', 'SW', 'GW', 'WW', 'S', 'SOIL', 'AIR', 'WATER']
+            if value.upper() in valid_matrices:
+                confidence_score = 0.9
+                validation_notes.append("Valid matrix type")
+            else:
+                confidence_score = 0.6
+                validation_notes.append("Non-standard matrix type")
+        
+        # Comp/Grab validation
+        elif 'comp' in key or 'grab' in key:
+            if value.upper() in ['G', 'C', 'Grab', 'Composite', 'Grab Sample', 'Composite Sample']:
+                confidence_score = 0.9
+                validation_notes.append("Valid comp/grab value")
+            else:
+                confidence_score = 0.6
+                validation_notes.append("Non-standard comp/grab value")
+        
+        # Container count validation
+        elif 'container' in key or 'cont' in key:
+            if value.isdigit() and 1 <= int(value) <= 100:
+                confidence_score = 0.8
+                validation_notes.append("Reasonable container count")
+            elif value.isdigit():
+                confidence_score = 0.6
+                validation_notes.append("Unusual container count")
+            else:
+                confidence_score = 0.4
+                validation_notes.append("Non-numeric container count")
+        
+        # General text validation
+        else:
+            if len(value) > 0:
+                confidence_score = 0.7
+                validation_notes.append("Non-empty text field")
+            else:
+                confidence_score = 0.3
+                validation_notes.append("Empty text field")
+        
+        return value, confidence_score, validation_notes
+    
     def restructure_sample_data(self, sample_data_fields, sample_ids, analysis_request, sample_analysis_map):
         """Restructure sample data to group by Customer Sample ID"""
         restructured_data = []
@@ -839,6 +1020,7 @@ class RestructuredPDFExtractor:
                 field_type_mapping[key].append(value)
         
         for sample_id in sample_ids:
+            self.logger.debug(f"Original sample_id from list: '{sample_id}'")
             sample_info = {
                 "Customer Sample ID": sample_id,
                 "Matrix": "NIL",
@@ -861,6 +1043,7 @@ class RestructuredPDFExtractor:
                     
                     # Map field names to our structure with more comprehensive matching
                     # Handle field names that include sample ID (e.g., "matrix_dw_01", "collected_date_start_01", "dw_01_matrix", "matrix_01")
+                    # Handle numbered field patterns like "matrix_1", "comp_grab_1", etc.
                     if key.startswith("matrix_") or key.endswith("_matrix") or key == "matrix":
                         sample_info["Matrix"] = value
                     elif key.startswith("comp_grab_") or key.endswith("_comp_grab") or key in ["comp/grab", "comp_grab", "composite_grab"]:
@@ -889,15 +1072,15 @@ class RestructuredPDFExtractor:
                         sample_info["Comp/Grab"] = value
                     elif key.startswith("dw_") and key.endswith("_collected_or_composite_end_date"):
                         sample_info["Composite or Collected End Date"] = value
-                    elif key.startswith("collected_composite_end_date_dw-") or key.startswith("collected_or_composite_end_date_dw-"):
+                    elif key.startswith("collected_composite_end_date_dw-") or key.startswith("collected_or_composite_end_date_dw-") or key.startswith("collected_or_composite_end_date_dw"):
                         sample_info["Composite or Collected End Date"] = value
                     elif key.startswith("dw_") and key.endswith("_collected_or_composite_end_time"):
                         sample_info["Composite or Collected End Time"] = value
-                    elif key.startswith("collected_composite_end_time_dw-") or key.startswith("collected_or_composite_end_time_dw-"):
+                    elif key.startswith("collected_composite_end_time_dw-") or key.startswith("collected_or_composite_end_time_dw-") or key.startswith("collected_or_composite_end_time_dw"):
                         sample_info["Composite or Collected End Time"] = value
-                    elif key.startswith("dw_") and key.endswith("_number_of_containers"):
+                    elif key.startswith("dw_") and key.endswith("_number_of_containers") or key.startswith("number_of_containers_dw") or key.startswith("num_containers_dw") or key.startswith("num_cont_dw"):
                         sample_info["# Cont"] = value
-                    elif key.startswith("number_of_containers_dw-") or key.startswith("number_of_containers_dw_"):
+                    elif key.startswith("number_of_containers_dw-") or key.startswith("number_of_containers_dw_") or key.startswith("num_containers_dw-") or key.startswith("num_containers_dw_") or key.startswith("num_cont_dw-") or key.startswith("num_cont_dw_"):
                         sample_info["# Cont"] = value
                     # Handle generic "date" and "time" fields - these should map to end date/time based on the document structure
                     elif key == "date" and sample_info["Composite or Collected End Date"] == "NIL":
@@ -1109,26 +1292,12 @@ class RestructuredPDFExtractor:
                 if (field.get('type') == 'analysis_checkbox' and 
                     field.get('sample_id') == sample_id and 
                     field.get('value') == 'checked'):
-                    # Extract analysis name from the key (e.g., "8240_checkbox" -> "8240" or "analysis_8240" -> "8240")
-                    key = field.get('key', '')
-                    if key.endswith('_checkbox'):
-                        analysis_name = key[:-9]  # Remove "_checkbox" suffix
-                        # Convert to uppercase for consistency
-                        if analysis_name.lower() == 'tph':
-                            analysis_name = 'TPH'
-                        else:
-                            analysis_name = analysis_name.upper()
-                        checked_analyses.append(analysis_name)
-                    elif key.startswith('analysis_'):
-                        analysis_name = key[9:]  # Remove "analysis_" prefix
-                        # Convert to uppercase for consistency
-                        if analysis_name.lower() == 'tph':
-                            analysis_name = 'TPH'
-                        else:
-                            analysis_name = analysis_name.upper()
+                    # Extract analysis name from the field
+                    analysis_name = field.get('analysis_name', '')
+                    if analysis_name:
                         checked_analyses.append(analysis_name)
             
-            # If there are checked analyses, create separate entries for each
+            # Create separate entries for each checked analysis
             if checked_analyses:
                 for analysis_name in checked_analyses:
                     # Create a copy of the sample info for each checked analysis
@@ -1282,7 +1451,7 @@ class RestructuredPDFExtractor:
         return restructured_data
     
     def extract_comprehensive(self, pdf_path):
-        """Main extraction method that combines text and vision analysis"""
+        """Main extraction method that combines text and vision analysis with fallbacks"""
         try:
             self.logger.info(f"Starting comprehensive extraction for: {pdf_path}")
             self.logger.info(f"Extraction start time: {datetime.now()}")
@@ -1292,6 +1461,11 @@ class RestructuredPDFExtractor:
             file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
             self.logger.info(f"File size: {file_size_bytes} bytes ({file_size_mb} MB)")
             
+            # Extract text as fallback
+            self.logger.info(f"Extracting text from PDF as fallback")
+            text_content = self.extract_text_from_pdf(pdf_path)
+            self.logger.info(f"Extracted {len(text_content)} characters of text")
+            
             # Extract images for AI vision analysis
             self.logger.info(f"Extracting images from PDF")
             images = self.extract_images_from_pdf(pdf_path)
@@ -1300,6 +1474,54 @@ class RestructuredPDFExtractor:
             # Perform AI vision analysis
             self.logger.info(f"Starting AI vision analysis")
             ai_results = self.analyze_with_ai_vision(images, pdf_path)
+            
+            # If AI vision results are poor, try text analysis as fallback
+            vision_field_count = len(ai_results.get('extracted_fields', []))
+            if vision_field_count < 10:  # Threshold for poor extraction
+                self.logger.warning(f"AI vision extracted only {vision_field_count} fields, trying text analysis fallback")
+                text_results = self.analyze_text_with_ai(text_content, pdf_path)
+                
+                # Merge results, preferring vision results but filling gaps with text results
+                if text_results.get('extracted_fields'):
+                    self.logger.info(f"Text analysis extracted {len(text_results['extracted_fields'])} additional fields")
+                    
+                    # Add text-extracted fields that don't conflict with vision results
+                    vision_keys = {field.get('key', '').lower() for field in ai_results.get('extracted_fields', [])}
+                    for text_field in text_results.get('extracted_fields', []):
+                        text_key = text_field.get('key', '').lower()
+                        if text_key not in vision_keys:
+                            ai_results['extracted_fields'].append(text_field)
+                    
+                    # Update sample IDs and analysis requests
+                    ai_results['sample_ids'].extend(text_results.get('sample_ids', []))
+                    ai_results['analysis_request'].extend(text_results.get('analysis_request', []))
+                    
+                    # Remove duplicates
+                    ai_results['sample_ids'] = list(set(ai_results['sample_ids']))
+                    ai_results['analysis_request'] = list(set(ai_results['analysis_request']))
+            
+            # Validate and enhance extracted fields (without adding confidence/validation_notes to output)
+            self.logger.info(f"Validating and enhancing {len(ai_results.get('extracted_fields', []))} extracted fields")
+            validated_fields = []
+            for field in ai_results.get('extracted_fields', []):
+                # Validate the field value
+                validated_value, confidence, notes = self.validate_field_value(
+                    field.get('key', ''), 
+                    field.get('value', ''), 
+                    field.get('type', '')
+                )
+                
+                # Update field value but don't add confidence/validation_notes to output
+                field['value'] = validated_value
+                
+                # Only include fields with reasonable confidence or non-NIL values
+                if confidence >= 0.3 or validated_value != "NIL":
+                    validated_fields.append(field)
+                else:
+                    self.logger.debug(f"Excluding low-confidence field: {field.get('key', '')} = {validated_value}")
+            
+            ai_results['extracted_fields'] = validated_fields
+            self.logger.info(f"After validation: {len(validated_fields)} fields retained")
             
             # Calculate totals
             total_fields = len(ai_results['extracted_fields'])
@@ -1388,7 +1610,7 @@ def main():
     print("🔍 Restructured PDF Extraction System")
     print("=" * 50)
     print("This system extracts all fields, values, and checkboxes from PDF documents")
-    print("using Google Gemini 2.0 Flash AI vision analysis.")
+    print("using Google Gemini 2.5 Flash AI vision analysis.")
     print()
     
     # Initialize extractor
