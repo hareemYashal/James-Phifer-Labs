@@ -1,13 +1,13 @@
 # Deployment Guide
 
-This guide will help you deploy the PDF Extraction System to various platforms.
+This guide will help you deploy the Comprehensive PDF Extraction System with intelligent field mapping and sample comment support to various platforms.
 
 ## Local Deployment
 
 ### Prerequisites
 - Python 3.8 or higher
 - pip package manager
-- Google Gemini API key
+- Google Gemini 2.5 Flash API key
 
 ### Steps
 1. Clone the repository

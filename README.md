@@ -1,10 +1,12 @@
 # Comprehensive PDF Extraction System
 
-A powerful PDF extraction system that uses Google Gemini 2.0 Flash to extract all fields, values, and checkboxes from Chain-of-Custody Analytical Request Documents. This system provides both a web API and command-line interface for comprehensive PDF data extraction.
+A powerful PDF extraction system that uses Google Gemini 2.5 Flash to extract all fields, values, and checkboxes from Chain-of-Custody Analytical Request Documents. This system provides both a web API and command-line interface for comprehensive PDF data extraction with intelligent field mapping and sample comment support.
 
 ## Features
 
 - **Comprehensive Field Extraction**: Extracts every single field, value, and detail from PDF documents
+- **Intelligent Field Mapping**: Automatically maps extracted fields to standardized output categories
+- **Sample Comment Support**: Extracts and includes sample comments for each sample
 - **Checkbox Detection**: Identifies all checkboxes (both box-style and bracket-style `[ ]`) and their states
 - **Sample ID Mapping**: Maps which Sample IDs are checked for which Analysis Requests
 - **Data Deliverables Checkboxes**: Extracts Level II, III, IV, Equis, and Others options
@@ -12,7 +14,8 @@ A powerful PDF extraction system that uses Google Gemini 2.0 Flash to extract al
 - **Time Zone Collection**: Extracts AM, PT, MT, CT, ET timezone checkboxes
 - **Container Information**: Extracts Container Size and Preservative Type values
 - **Reportable Checkboxes**: Extracts Yes/No reportable options
-- **AI-Powered Analysis**: Uses Google Gemini 2.0 Flash for accurate and detailed extraction
+- **Flexible Field Patterns**: Handles various field naming conventions (underscores, hyphens, prefixes)
+- **AI-Powered Analysis**: Uses Google Gemini 2.5 Flash for accurate and detailed extraction
 - **Single API Endpoint**: One endpoint to upload PDF and get all extracted information
 - **Interactive Command Line**: User-friendly interface for direct PDF processing
 - **Structured JSON Response**: Returns well-organized JSON with all extracted data
@@ -131,96 +134,59 @@ print(f"Found {len(result.get('sample_data_information', []))} samples")
 
 ## Response Format
 
-The system returns JSON in the exact format you specified:
+The system returns a clean, structured JSON response with three main sections:
 
 ```json
 {
-  "status": "success",
-  "pdf_path": "path/to/file.pdf",
-  "file_size_bytes": 671718,
-  "file_size_mb": 0.64,
-  "extraction_methods": ["Comprehensive AI Vision"],
   "extracted_fields": [
     {
-      "key": "Document Title",
-      "value": "CHAIN-OF-CUSTODY Analytical Request Document",
-      "type": "header",
+      "key": "company_name",
+      "value": "Jacqueline Ventures",
+      "type": "field",
       "page": 1,
       "method": "AI Vision"
     },
     {
-      "key": "XM-15_OPS 3467",
-      "value": "checked",
+      "key": "sample_comment_laj_410",
+      "value": "Okay",
+      "type": "sample_field",
+      "sample_id": "LAJ-410",
       "page": 1,
-      "method": "AI Vision",
-      "type": "analysis_checkbox",
-      "sample_id": "XM-15",
-      "analysis_name": "OPS 3467"
-    },
-    {
-      "key": "Container Size",
-      "value": "500ml",
-      "page": 1,
-      "method": "AI Vision",
-      "type": "field"
-    },
-    {
-      "key": "Data Deliverables Level II",
-      "value": "checked",
-      "page": 1,
-      "method": "AI Vision",
-      "type": "checkbox",
-      "checkbox_type": "data_deliverables"
+      "method": "AI Vision"
     }
   ],
-  "all_checkboxes": {
-    "hazard_checkboxes": {},
-    "technical_checkboxes": {},
-    "administrative_checkboxes": {},
-    "analysis_checkboxes": {},
-    "data_deliverables_checkboxes": {
-      "Level II": "checked",
-      "Level III": "unchecked",
-      "Level IV": "checked",
-      "Equis": "unchecked",
-      "Others": "unchecked"
+  "general_information": [
+    {
+      "key": "company_name",
+      "value": "Jacqueline Ventures",
+      "type": "field",
+      "page": 1,
+      "method": "AI Vision"
     },
-    "rush_option_checkboxes": {
-      "Same Day": "unchecked",
-      "1 Day": "checked",
-      "2 Day": "unchecked",
-      "3 Day": "unchecked",
-      "Others": "unchecked"
-    },
-    "timezone_checkboxes": {
-      "AM": "unchecked",
-      "PT": "unchecked",
-      "MT": "checked",
-      "CT": "unchecked",
-      "ET": "unchecked"
-    },
-    "reportable_checkboxes": {
-      "Yes": "checked",
-      "No": "unchecked"
-    },
-    "other_checkboxes": {},
-    "all_checkboxes_summary": {}
-  },
-  "sample_analysis_mapping": {
-    "sample_ids": ["XM-15", "Xm-30", "xm-45"],
-    "analysis_request": ["OPS 3467", "Q 61724", "T-24461"],
-    "sample_analysis_map": {
-      "XM-15": {
-        "OPS 3467": "checked",
-        "Q 61724": "checked",
-        "T-24461": "unchecked"
-      }
+    {
+      "key": "contact_person_report_to",
+      "value": "Jacqueline Kingsbury",
+      "type": "field",
+      "page": 1,
+      "method": "AI Vision"
     }
-  },
-  "total_fields": 77,
-  "total_checkboxes": 6,
-  "sample_ids": ["XM-15", "Xm-30", "xm-45"],
-  "analysis_request": ["OPS 3467", "Q 61724", "T-24461"]
+  ],
+  "sample_data_information": [
+    {
+      "Customer Sample ID": "LAJ-410",
+      "Matrix": "N",
+      "Comp/Grab": "4",
+      "Composite Start Date": "3/10/27",
+      "Composite Start Time": "5pm",
+      "Composite or Collected End Date": "3/10/27",
+      "Composite or Collected End Time": "5:01",
+      "# Cont": "2",
+      "Residual Chloride Result": "0.1",
+      "Residual Chloride Units": "mg",
+      "Sample Comment": "Okay",
+      "analysis_request": "Blizzard"
+    }
+  ]
 }
 ```
 
@@ -230,9 +196,23 @@ The system extracts and categorizes fields into different types:
 
 - **`header`**: Document titles and headers
 - **`field`**: Regular form fields and text inputs
-- **`sample_field`**: Sample-related information (ID, matrix, dates, etc.)
+- **`sample_field`**: Sample-related information (ID, matrix, dates, comments, etc.)
 - **`analysis_checkbox`**: Checkboxes that map Sample IDs to Analysis Requests
 - **`checkbox`**: Other checkboxes (technical, administrative, etc.)
+
+## Sample Data Structure
+
+Each sample in `sample_data_information` includes:
+
+- **Customer Sample ID**: Unique identifier for the sample
+- **Matrix**: Sample matrix code (e.g., "N", "B", "DW")
+- **Comp/Grab**: Composite or grab sample indicator
+- **Composite Start Date/Time**: Collection start information
+- **Composite or Collected End Date/Time**: Collection end information
+- **# Cont**: Number of containers
+- **Residual Chloride Result/Units**: Test results and units
+- **Sample Comment**: Comments or notes for the sample
+- **analysis_request**: Requested analysis type
 
 ## Checkbox Categories
 
@@ -303,11 +283,12 @@ GEMINI_API_KEY=your_actual_gemini_api_key_here
 
 ### API Configuration
 
-- **Model**: Gemini 2.0 Flash
+- **Model**: Gemini 2.5 Flash
 - **Max file size**: 1MB per API call
 - **Supported formats**: PDF only
 - **Image resolution**: 2x scaling for better accuracy
 - **Server binding**: localhost (127.0.0.1) for better compatibility
+- **Field Mapping**: Intelligent mapping with support for various naming patterns
 
 ## Troubleshooting
 

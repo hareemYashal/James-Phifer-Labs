@@ -21,12 +21,18 @@ wheels/
 *.egg
 MANIFEST
 
-# Virtual Environment
-venv/
+# Environment variables
+.env
+.venv
 env/
+venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Logs
+logs/
+*.log
 
 # IDE
 .vscode/
@@ -44,37 +50,18 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Project specific
-logs/
-*.log
-debug_ai_response_*.txt
-*_test.json
-*_fix.json
-*_restructured_test.json
-*_final_*.json
-*_ultimate_*.json
-*_perfect_*.json
-*_working_*.json
-*_complete_*.json
-*_date_time_*.json
-converted_*.json
-debug_*.txt
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Test files
+test_*.py
+debug_*.py
+*_test.py
 
 # Temporary files
 *.tmp
 *.temp
-temp/
-tmp/
+debug_*.txt
 
-# Test and debug files
-test_*.py
-debug_*.py
-*_test.py
-*_debug.py
+# API keys and sensitive data
+*.key
+*.pem
+config.ini
+secrets.json

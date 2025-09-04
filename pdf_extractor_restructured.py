@@ -1032,6 +1032,7 @@ class RestructuredPDFExtractor:
                 "# Cont": "NIL",
                 "Residual Chloride Result": "NIL",
                 "Residual Chloride Units": "NIL",
+                "Sample Comment": "NIL",
                 "analysis_request": {}
             }
             
@@ -1044,7 +1045,9 @@ class RestructuredPDFExtractor:
                     # Map field names to our structure with more comprehensive matching
                     # Handle field names that include sample ID (e.g., "matrix_dw_01", "collected_date_start_01", "dw_01_matrix", "matrix_01")
                     # Handle numbered field patterns like "matrix_1", "comp_grab_1", etc.
-                    if key.startswith("matrix_") or key.endswith("_matrix") or key == "matrix":
+                    if (key.startswith("matrix_") or key.endswith("_matrix") or 
+                        key.startswith("matrix_type_sample_") or key.endswith("_matrix_type_sample") or
+                        key == "matrix"):
                         sample_info["Matrix"] = value
                     elif key.startswith("comp_grab_") or key.endswith("_comp_grab") or key in ["comp/grab", "comp_grab", "composite_grab"]:
                         sample_info["Comp/Grab"] = value
@@ -1052,20 +1055,70 @@ class RestructuredPDFExtractor:
                         sample_info["Composite Start Date"] = value
                     elif key.startswith("collected_time_start_") or key.endswith("_collected_time_start") or key == "time_collected_composite_start" or key in ["composite_start_time", "composite start time"]:
                         sample_info["Composite Start Time"] = value
-                    elif key.startswith("collected_date_end_") or key.endswith("_collected_date_end") or key in ["composite_end_date", "composite end date", "collected_composite_end_date", "collected or composite end date", "date_collected_composite_end", "collected_or_composite_end_date"] or key.startswith("collected_composite_end_date_"):
+                    elif (key.startswith("collected_date_end_") or key.endswith("_collected_date_end") or 
+                          key.startswith("collected_as_composite_end_date_") or key.endswith("_collected_as_composite_end_date") or
+                          key.startswith("collected_at_composite_end_date_") or key.endswith("_collected_at_composite_end_date") or
+                          key.startswith("composite_end_date_") or key.endswith("_composite_end_date") or
+                          key in ["composite_end_date", "composite end date", "collected_composite_end_date", "collected or composite end date", "date_collected_composite_end", "collected_or_composite_end_date"] or 
+                          key.startswith("collected_composite_end_date_")):
                         sample_info["Composite or Collected End Date"] = value
-                    elif key.startswith("collected_time_end_") or key.endswith("_collected_time_end") or key == "time_collected_composite_end" or key in ["composite_end_time", "composite end time", "collected_composite_end_time", "collected or composite end time", "collected_or_composite_end_time"] or key.startswith("collected_composite_end_time_"):
+                    elif (key.startswith("collected_time_end_") or key.endswith("_collected_time_end") or 
+                          key.startswith("collected_as_composite_end_time_") or key.endswith("_collected_as_composite_end_time") or
+                          key.startswith("collected_at_composite_end_time_") or key.endswith("_collected_at_composite_end_time") or
+                          key.startswith("composite_end_time_") or key.endswith("_composite_end_time") or
+                          key == "time_collected_composite_end" or key in ["composite_end_time", "composite end time", "collected_composite_end_time", "collected or composite end time", "collected_or_composite_end_time"] or 
+                          key.startswith("collected_composite_end_time_")):
                         sample_info["Composite or Collected End Time"] = value
                     # Handle the exact field names that the AI is currently using
                     elif key == "collected_or_composite_end_date":
                         sample_info["Composite or Collected End Date"] = value
                     elif key == "collected_or_composite_end_time":
                         sample_info["Composite or Collected End Time"] = value
+                    # Handle fields with sample ID suffixes
+                    elif key.startswith("collected_or_composite_end_date_") and key.endswith(f"_{sample_id.replace(' ', '_').replace('-', '_')}"):
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key.startswith("collected_or_composite_end_time_") and key.endswith(f"_{sample_id.replace(' ', '_').replace('-', '_')}"):
+                        sample_info["Composite or Collected End Time"] = value
+                    # Handle container count fields
+                    elif (key.startswith("number_of_containers_") or key.endswith("_number_of_containers") or
+                          key.startswith("num_containers_") or key.endswith("_num_containers") or
+                          key.startswith("num_cont_") or key.endswith("_num_cont") or
+                          key.startswith("container_count_") or key.endswith("_container_count") or
+                          key in ["number_of_containers", "num_containers", "num_cont", "container_count", "# cont", "cont"]):
+                        sample_info["# Cont"] = value
+                    # Handle result fields
+                    elif (key.startswith("result_") or key.endswith("_result") or
+                          key.startswith("residual_chloride_result_") or key.endswith("_residual_chloride_result") or
+                          key in ["result", "residual_chloride_result", "residual chloride result"]):
+                        sample_info["Residual Chloride Result"] = value
+                    # Handle units fields
+                    elif (key.startswith("units_") or key.endswith("_units") or
+                          key.startswith("residual_chloride_units_") or key.endswith("_residual_chloride_units") or
+                          key in ["units", "residual_chloride_units", "residual chloride units"]):
+                        sample_info["Residual Chloride Units"] = value
                     # Handle the new field naming patterns from the current AI extraction
                     elif key.startswith("dw_") and key.endswith("_matrix"):
                         sample_info["Matrix"] = value
                     elif key.startswith("matrix_dw-") or key.startswith("matrix_dw_"):
                         sample_info["Matrix"] = value
+                    # Handle sample_YOT_*_matrix_code pattern
+                    elif key.startswith("sample_") and key.endswith("_matrix_code"):
+                        sample_info["Matrix"] = value
+                    # Handle sample_YOT_*_collected_start_date pattern (with underscores or hyphens)
+                    elif key.startswith("sample_") and (key.endswith("_collected_start_date") or key.endswith("-collected_start_date")):
+                        sample_info["Composite Start Date"] = value
+                    elif key.startswith("sample_") and (key.endswith("_collected_start_time") or key.endswith("-collected_start_time")):
+                        sample_info["Composite Start Time"] = value
+                    # Handle collected_start_date and collected_start_time patterns (with underscores or hyphens)
+                    elif key.startswith("collected_start_date_") or key.endswith("_collected_start_date") or key.startswith("collected_start_date-") or key.endswith("-collected_start_date"):
+                        sample_info["Composite Start Date"] = value
+                    elif key.startswith("collected_start_time_") or key.endswith("_collected_start_time") or key.startswith("collected_start_time-") or key.endswith("-collected_start_time"):
+                        sample_info["Composite Start Time"] = value
+                    # Handle collected_end_date and collected_end_time patterns (with underscores or hyphens)
+                    elif key.startswith("collected_end_date_") or key.endswith("_collected_end_date") or key.startswith("collected_end_date-") or key.endswith("-collected_end_date"):
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key.startswith("collected_end_time_") or key.endswith("_collected_end_time") or key.startswith("collected_end_time-") or key.endswith("-collected_end_time"):
+                        sample_info["Composite or Collected End Time"] = value
                     elif key.startswith("dw_") and key.endswith("_comp_grab"):
                         sample_info["Comp/Grab"] = value
                     elif key.startswith("comp_grab_dw-") or key.startswith("comp_grab_dw_"):
@@ -1092,12 +1145,15 @@ class RestructuredPDFExtractor:
                         sample_info["Composite or Collected End Date"] = value
                     elif key.startswith("time_") and sample_info["Composite or Collected End Time"] == "NIL":
                         sample_info["Composite or Collected End Time"] = value
-                    elif key.startswith("number_containers_") or key.endswith("_number_containers") or key in ["# cont", "# cont.", "cont", "number_of_containers", "number of containers", "num_containers", "#_cont"]:
+                    elif key.startswith("number_containers_") or key.endswith("_number_containers") or key.startswith("number_containers-") or key.endswith("-number_containers") or key in ["# cont", "# cont.", "cont", "number_of_containers", "number of containers", "num_containers", "#_cont"]:
                         sample_info["# Cont"] = value
                     elif key.startswith("residual_chlorine_result_") or key.endswith("_residual_chlorine_result") or key in ["result", "residual chlorine result", "residual chloride result", "residual_chlorine_result", "residual_chloride_result"]:
                         sample_info["Residual Chloride Result"] = value
                     elif key.startswith("residual_chlorine_units_") or key.endswith("_residual_chlorine_units") or key in ["units", "residual chlorine units", "residual chloride units", "residual_chlorine_units", "residual_chloride_units"]:
                         sample_info["Residual Chloride Units"] = value
+                    # Handle sample comment fields
+                    elif key.startswith("sample_comment_") or key.endswith("_sample_comment") or key.startswith("comment_") or key.endswith("_comment") or key in ["sample_comment", "comment", "comments"]:
+                        sample_info["Sample Comment"] = value
             
             # Additional comprehensive field mapping - handle cases where fields might not be properly grouped by sample ID
             # This is a more aggressive approach to find and map fields that might be extracted but not properly associated
@@ -1119,15 +1175,19 @@ class RestructuredPDFExtractor:
                         continue
                     if sample_info["Composite or Collected End Time"] != "NIL" and (key.startswith("collected_time_end_") or key.endswith("_collected_time_end") or key == "time_collected_composite_end" or key in ["composite_end_time", "composite end time", "collected_composite_end_time", "collected or composite end time", "collected_or_composite_end_time"] or key.startswith("collected_composite_end_time_")):
                         continue
-                    if sample_info["# Cont"] != "NIL" and (key.startswith("number_containers_") or key.endswith("_number_containers") or key in ["# cont", "# cont.", "cont", "number_of_containers", "number of containers", "num_containers", "#_cont"]):
+                    if sample_info["# Cont"] != "NIL" and (key.startswith("number_containers_") or key.endswith("_number_containers") or key.startswith("number_containers-") or key.endswith("-number_containers") or key in ["# cont", "# cont.", "cont", "number_of_containers", "number of containers", "num_containers", "#_cont"]):
                         continue
                     if sample_info["Residual Chloride Result"] != "NIL" and (key.startswith("residual_chlorine_result_") or key.endswith("_residual_chlorine_result") or key in ["result", "residual chlorine result", "residual chloride result", "residual_chlorine_result", "residual_chloride_result"]):
                         continue
                     if sample_info["Residual Chloride Units"] != "NIL" and (key.startswith("residual_chlorine_units_") or key.endswith("_residual_chlorine_units") or key in ["units", "residual chlorine units", "residual chloride units", "residual_chlorine_units", "residual_chloride_units"]):
                         continue
+                    if sample_info["Sample Comment"] != "NIL" and (key.startswith("sample_comment_") or key.endswith("_sample_comment") or key.startswith("comment_") or key.endswith("_comment") or key in ["sample_comment", "comment", "comments"]):
+                        continue
                     
                     # Apply the same mapping logic but for ungrouped fields
-                    if key.startswith("matrix_") or key.endswith("_matrix") or key == "matrix":
+                    if (key.startswith("matrix_") or key.endswith("_matrix") or 
+                        key.startswith("matrix_type_sample_") or key.endswith("_matrix_type_sample") or
+                        key == "matrix"):
                         sample_info["Matrix"] = value
                     elif key.startswith("comp_grab_") or key.endswith("_comp_grab") or key in ["comp/grab", "comp_grab", "composite_grab"]:
                         sample_info["Comp/Grab"] = value
@@ -1135,9 +1195,19 @@ class RestructuredPDFExtractor:
                         sample_info["Composite Start Date"] = value
                     elif key.startswith("collected_time_start_") or key.endswith("_collected_time_start") or key == "time_collected_composite_start" or key in ["composite_start_time", "composite start time"]:
                         sample_info["Composite Start Time"] = value
-                    elif key.startswith("collected_date_end_") or key.endswith("_collected_date_end") or key in ["composite_end_date", "composite end date", "collected_composite_end_date", "collected or composite end date", "date_collected_composite_end", "collected_or_composite_end_date"] or key.startswith("collected_composite_end_date_"):
+                    elif (key.startswith("collected_date_end_") or key.endswith("_collected_date_end") or 
+                          key.startswith("collected_as_composite_end_date_") or key.endswith("_collected_as_composite_end_date") or
+                          key.startswith("collected_at_composite_end_date_") or key.endswith("_collected_at_composite_end_date") or
+                          key.startswith("composite_end_date_") or key.endswith("_composite_end_date") or
+                          key in ["composite_end_date", "composite end date", "collected_composite_end_date", "collected or composite end date", "date_collected_composite_end", "collected_or_composite_end_date"] or 
+                          key.startswith("collected_composite_end_date_")):
                         sample_info["Composite or Collected End Date"] = value
-                    elif key.startswith("collected_time_end_") or key.endswith("_collected_time_end") or key == "time_collected_composite_end" or key in ["composite_end_time", "composite end time", "collected_composite_end_time", "collected or composite end time", "collected_or_composite_end_time"] or key.startswith("collected_composite_end_time_"):
+                    elif (key.startswith("collected_time_end_") or key.endswith("_collected_time_end") or 
+                          key.startswith("collected_as_composite_end_time_") or key.endswith("_collected_as_composite_end_time") or
+                          key.startswith("collected_at_composite_end_time_") or key.endswith("_collected_at_composite_end_time") or
+                          key.startswith("composite_end_time_") or key.endswith("_composite_end_time") or
+                          key == "time_collected_composite_end" or key in ["composite_end_time", "composite end time", "collected_composite_end_time", "collected or composite end time", "collected_or_composite_end_time"] or 
+                          key.startswith("collected_composite_end_time_")):
                         sample_info["Composite or Collected End Time"] = value
                     # Handle generic "date" and "time" fields - these should map to end date/time based on the document structure
                     elif key == "date" and sample_info["Composite or Collected End Date"] == "NIL":
@@ -1149,12 +1219,15 @@ class RestructuredPDFExtractor:
                         sample_info["Composite or Collected End Date"] = value
                     elif key.startswith("time_") and sample_info["Composite or Collected End Time"] == "NIL":
                         sample_info["Composite or Collected End Time"] = value
-                    elif key.startswith("number_containers_") or key.endswith("_number_containers") or key in ["# cont", "# cont.", "cont", "number_of_containers", "number of containers", "num_containers", "#_cont"]:
+                    elif key.startswith("number_containers_") or key.endswith("_number_containers") or key.startswith("number_containers-") or key.endswith("-number_containers") or key in ["# cont", "# cont.", "cont", "number_of_containers", "number of containers", "num_containers", "#_cont"]:
                         sample_info["# Cont"] = value
                     elif key.startswith("residual_chlorine_result_") or key.endswith("_residual_chlorine_result") or key in ["result", "residual chlorine result", "residual chloride result", "residual_chlorine_result", "residual_chloride_result"]:
                         sample_info["Residual Chloride Result"] = value
                     elif key.startswith("residual_chlorine_units_") or key.endswith("_residual_chlorine_units") or key in ["units", "residual chlorine units", "residual chloride units", "residual_chlorine_units", "residual_chloride_units"]:
                         sample_info["Residual Chloride Units"] = value
+                    # Handle sample comment fields
+                    elif key.startswith("sample_comment_") or key.endswith("_sample_comment") or key.startswith("comment_") or key.endswith("_comment") or key in ["sample_comment", "comment", "comments"]:
+                        sample_info["Sample Comment"] = value
                     # Additional field patterns that might be used by AI
                     elif key in ["start_date", "start_time", "end_date", "end_time", "collection_date", "collection_time"]:
                         if key in ["start_date", "collection_date"] and sample_info["Composite Start Date"] == "NIL":
@@ -1209,9 +1282,10 @@ class RestructuredPDFExtractor:
                             break
             
             if sample_info["Composite Start Date"] == "NIL":
-                # Look for collected_date_start fields
+                # Look for collected_date_start fields and composite_start_date fields
                 for field_key in field_type_mapping:
-                    if (field_key.startswith("collected_date_start_") or field_key.endswith("_collected_date_start")) and field_type_mapping[field_key]:
+                    if ((field_key.startswith("collected_date_start_") or field_key.endswith("_collected_date_start")) or
+                        (field_key.startswith("composite_start_date_") or field_key.endswith("_composite_start_date"))) and field_type_mapping[field_key]:
                         for date_value in field_type_mapping[field_key]:
                             if date_value != "NIL":
                                 sample_info["Composite Start Date"] = date_value
@@ -1220,9 +1294,11 @@ class RestructuredPDFExtractor:
                             break
             
             if sample_info["Composite Start Time"] == "NIL":
-                # Look for collected_time_start fields or time_collected_composite_start
+                # Look for collected_time_start fields, composite_start_time fields, or time_collected_composite_start
                 for field_key in field_type_mapping:
-                    if (field_key.startswith("collected_time_start_") or field_key.endswith("_collected_time_start") or field_key == "time_collected_composite_start") and field_type_mapping[field_key]:
+                    if ((field_key.startswith("collected_time_start_") or field_key.endswith("_collected_time_start")) or
+                        (field_key.startswith("composite_start_time_") or field_key.endswith("_composite_start_time")) or
+                        field_key == "time_collected_composite_start") and field_type_mapping[field_key]:
                         for time_value in field_type_mapping[field_key]:
                             if time_value != "NIL":
                                 sample_info["Composite Start Time"] = time_value
@@ -1231,9 +1307,15 @@ class RestructuredPDFExtractor:
                             break
             
             if sample_info["Composite or Collected End Date"] == "NIL":
-                # Look for collected_date_end fields or generic "date" fields
+                # Look for collected_date_end fields, collected_as_composite_end_date fields, collected_at_composite_end_date fields, or generic "date" fields
                 for field_key in field_type_mapping:
-                    if ((field_key.startswith("collected_date_end_") or field_key.endswith("_collected_date_end")) or field_key in ["date", "date_collected_composite_end", "collected_or_composite_end_date"] or field_key.startswith("date_") or field_key.startswith("collected_composite_end_date_") or (field_key.startswith("dw_") and field_key.endswith("_collected_or_composite_end_date"))) and field_type_mapping[field_key]:
+                    if (((field_key.startswith("collected_date_end_") or field_key.endswith("_collected_date_end")) or
+                         (field_key.startswith("collected_as_composite_end_date_") or field_key.endswith("_collected_as_composite_end_date")) or
+                         (field_key.startswith("collected_at_composite_end_date_") or field_key.endswith("_collected_at_composite_end_date")) or
+                         (field_key.startswith("composite_end_date_") or field_key.endswith("_composite_end_date")) or
+                         field_key in ["date", "date_collected_composite_end", "collected_or_composite_end_date"] or 
+                         field_key.startswith("date_") or field_key.startswith("collected_composite_end_date_") or 
+                         (field_key.startswith("dw_") and field_key.endswith("_collected_or_composite_end_date"))) and field_type_mapping[field_key]):
                         for date_value in field_type_mapping[field_key]:
                             if date_value != "NIL":
                                 sample_info["Composite or Collected End Date"] = date_value
@@ -1242,9 +1324,15 @@ class RestructuredPDFExtractor:
                             break
             
             if sample_info["Composite or Collected End Time"] == "NIL":
-                # Look for collected_time_end fields or time_collected_composite_end or generic "time" fields
+                # Look for collected_time_end fields, collected_as_composite_end_time fields, collected_at_composite_end_time fields, or time_collected_composite_end or generic "time" fields
                 for field_key in field_type_mapping:
-                    if ((field_key.startswith("collected_time_end_") or field_key.endswith("_collected_time_end") or field_key == "time_collected_composite_end") or field_key in ["time", "collected_or_composite_end_time"] or field_key.startswith("time_") or field_key.startswith("collected_composite_end_time_") or (field_key.startswith("dw_") and field_key.endswith("_collected_or_composite_end_time"))) and field_type_mapping[field_key]:
+                    if (((field_key.startswith("collected_time_end_") or field_key.endswith("_collected_time_end")) or
+                         (field_key.startswith("collected_as_composite_end_time_") or field_key.endswith("_collected_as_composite_end_time")) or
+                         (field_key.startswith("collected_at_composite_end_time_") or field_key.endswith("_collected_at_composite_end_time")) or
+                         (field_key.startswith("composite_end_time_") or field_key.endswith("_composite_end_time")) or
+                         field_key == "time_collected_composite_end" or field_key in ["time", "collected_or_composite_end_time"] or 
+                         field_key.startswith("time_") or field_key.startswith("collected_composite_end_time_") or 
+                         (field_key.startswith("dw_") and field_key.endswith("_collected_or_composite_end_time"))) and field_type_mapping[field_key]):
                         for time_value in field_type_mapping[field_key]:
                             if time_value != "NIL":
                                 sample_info["Composite or Collected End Time"] = time_value
@@ -1253,9 +1341,16 @@ class RestructuredPDFExtractor:
                             break
             
             if sample_info["# Cont"] == "NIL":
-                # Look for number_containers fields or num_containers or #_cont
+                # Look for container count fields with more comprehensive patterns
                 for field_key in field_type_mapping:
-                    if (field_key.startswith("number_containers_") or field_key.endswith("_number_containers") or field_key in ["num_containers", "#_cont"] or (field_key.startswith("dw_") and field_key.endswith("_number_of_containers"))) and field_type_mapping[field_key]:
+                    if ((field_key.startswith("number_containers_") or field_key.endswith("_number_containers") or 
+                         field_key.startswith("number_of_containers_") or field_key.endswith("_number_of_containers") or
+                         field_key.startswith("num_containers_") or field_key.endswith("_num_containers") or
+                         field_key.startswith("num_cont_") or field_key.endswith("_num_cont") or
+                         field_key.startswith("container_count_") or field_key.endswith("_container_count") or
+                         field_key in ["num_containers", "#_cont", "container_count", "number_of_containers", "num_cont", "# cont", "cont"] or 
+                         (field_key.startswith("dw_") and field_key.endswith("_number_of_containers"))) and 
+                        field_type_mapping[field_key]):
                         for cont_value in field_type_mapping[field_key]:
                             if cont_value != "NIL":
                                 sample_info["# Cont"] = cont_value
@@ -1264,9 +1359,13 @@ class RestructuredPDFExtractor:
                             break
             
             if sample_info["Residual Chloride Result"] == "NIL":
-                # Look for residual_chlorine_result fields
+                # Look for result fields with more comprehensive patterns
                 for field_key in field_type_mapping:
-                    if (field_key.startswith("residual_chlorine_result_") or field_key.endswith("_residual_chlorine_result")) and field_type_mapping[field_key]:
+                    if ((field_key.startswith("residual_chlorine_result_") or field_key.endswith("_residual_chlorine_result") or
+                         field_key.startswith("residual_chloride_result_") or field_key.endswith("_residual_chloride_result") or
+                         field_key.startswith("result_") or field_key.endswith("_result") or
+                         field_key in ["result", "residual_chlorine_result", "residual_chloride_result", "residual chloride result"]) and 
+                        field_type_mapping[field_key]):
                         for result_value in field_type_mapping[field_key]:
                             if result_value != "NIL":
                                 sample_info["Residual Chloride Result"] = result_value
@@ -1275,9 +1374,13 @@ class RestructuredPDFExtractor:
                             break
             
             if sample_info["Residual Chloride Units"] == "NIL":
-                # Look for residual_chlorine_units fields
+                # Look for units fields with more comprehensive patterns
                 for field_key in field_type_mapping:
-                    if (field_key.startswith("residual_chlorine_units_") or field_key.endswith("_residual_chlorine_units")) and field_type_mapping[field_key]:
+                    if ((field_key.startswith("residual_chlorine_units_") or field_key.endswith("_residual_chlorine_units") or
+                         field_key.startswith("residual_chloride_units_") or field_key.endswith("_residual_chloride_units") or
+                         field_key.startswith("units_") or field_key.endswith("_units") or
+                         field_key in ["units", "residual_chlorine_units", "residual_chloride_units", "residual chloride units"]) and 
+                        field_type_mapping[field_key]):
                         for units_value in field_type_mapping[field_key]:
                             if units_value != "NIL":
                                 sample_info["Residual Chloride Units"] = units_value
@@ -1531,11 +1634,24 @@ class RestructuredPDFExtractor:
             general_information = []
             sample_data_information = []
             
-            # Keywords to identify sample-related fields
+            # Keywords to identify sample-related fields (more precise list)
             sample_keywords = [
-                'sample', 'matrix', 'grab', 'composite', 'container', 'analysis', 
-                'parameter', 'method', 'collected', 'received', 'preservative',
-                'volume', 'size', 'type', 'source', 'description', 'work order'
+                'sample_id', 'matrix_', 'comp_grab_', 'composite_start_', 'composite_end_',
+                'collected_composite_', 'collected_at_', 'number_of_containers_', 'num_containers_', 'result_', 'units_',
+                'sample_comment_', 'analysis_', 'laj_', 'yot_', 'customer_sample_', 'residual_chloride_',
+                'container_count_', 'num_cont_', 'collected_date_', 'collected_time_'
+            ]
+            
+            # Keywords to identify general information fields
+            general_keywords = [
+                'company', 'project', 'contact', 'phone', 'email', 'address', 'purchase',
+                'order', 'quote', 'date', 'time', 'location', 'city', 'state', 'county',
+                'origin', 'regulatory', 'program', 'permit', 'ow_pwsid', 'ww_permit',
+                'lab_use', 'proj_mgr', 'account', 'profile', 'template', 'bottle', 'qc',
+                'field_id', 'temp', 'corrected', 'comm', 'instructions', 'remarks',
+                'hazards', 'relinquished', 'received', 'signature', 'printed', 'name',
+                'tracking', 'delivered', 'hand', 'person', 'fedex', 'ups', 'labline',
+                'page', 'env_frm', 'corq', 'header', 'title', 'scan', 'qr', 'code'
             ]
             
             # Separate fields into general and sample categories
@@ -1545,17 +1661,28 @@ class RestructuredPDFExtractor:
                 field_key = str(field_key_raw).lower() if field_key_raw else ''
                 field_type = field.get('type', '')
                 
-                # Check if field is sample-related
+                # Check if field is sample-related (more precise check)
                 is_sample_related = (
                     field_type in ['sample_field', 'analysis_checkbox'] or
-                    any(keyword in field_key for keyword in sample_keywords) or
                     field.get('sample_id') is not None or
-                    field.get('analysis_name') is not None
+                    field.get('analysis_name') is not None or
+                    # Check for specific sample field patterns (must start with or contain the keyword)
+                    any(field_key.startswith(keyword) or keyword in field_key for keyword in sample_keywords)
+                )
+                
+                # Check if field is general information (not sample-related)
+                is_general_related = (
+                    field_type in ['field', 'header'] and
+                    (any(keyword in field_key for keyword in general_keywords) or
+                     not is_sample_related)
                 )
                 
                 if is_sample_related:
                     sample_data_information.append(field)
+                elif is_general_related:
+                    general_information.append(field)
                 else:
+                    # Default to general information for any unclassified fields
                     general_information.append(field)
             
             # Detect document format and restructure sample data accordingly
