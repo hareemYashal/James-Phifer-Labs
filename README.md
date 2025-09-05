@@ -1,24 +1,44 @@
-# Comprehensive PDF Extraction System
+# PDF Chain-of-Custody Extraction System
 
-A powerful PDF extraction system that uses Google Gemini 2.5 Flash to extract all fields, values, and checkboxes from Chain-of-Custody Analytical Request Documents. This system provides both a web API and command-line interface for comprehensive PDF data extraction with intelligent field mapping and sample comment support.
+A comprehensive PDF extraction system that uses Google Gemini 2.5 Flash to extract all fields, values, and checkboxes from Chain-of-Custody Analytical Request Documents. This system provides both a web API and command-line interface for accurate PDF data extraction with intelligent field mapping, analysis request processing, and sample data restructuring.
 
-## Features
+## 🚀 Key Features
 
 - **Comprehensive Field Extraction**: Extracts every single field, value, and detail from PDF documents
-- **Intelligent Field Mapping**: Automatically maps extracted fields to standardized output categories
+- **Intelligent Field Mapping**: Automatically maps extracted fields to standardized output categories with support for 20+ field patterns
+- **Analysis Request Processing**: Correctly processes and maps analysis checkboxes to sample data
+- **Sample Data Restructuring**: Creates structured sample data with proper analysis repetition
+- **Multi-Format Support**: Handles various document formats and field naming conventions
+- **AI-Powered Accuracy**: Uses Google Gemini 2.5 Flash for high-accuracy extraction
+
+## 📋 Detailed Features
+
+### Field Extraction & Mapping
+- **Comprehensive Field Extraction**: Extracts every single field, value, and detail from PDF documents
+- **Intelligent Field Mapping**: Maps 20+ field patterns including:
+  - `collected_date_*`, `collected_time_*` patterns
+  - `collected_or_composite_start_date_*`, `collected_or_composite_start_time_*` patterns
+  - `collected_as_composite_start_date_*`, `collected_as_composite_start_time_*` patterns
+  - `grab_comp_*`, `matrix_*` patterns
+  - `sample_*_matrix`, `sample_*_comp_grab` patterns
 - **Sample Comment Support**: Extracts and includes sample comments for each sample
+- **Matrix/Grab Code Separation**: Automatically separates combined matrix and grab codes
+- **Result/Units Separation**: Separates combined result and units values using regex
+
+### Checkbox Detection & Processing
 - **Checkbox Detection**: Identifies all checkboxes (both box-style and bracket-style `[ ]`) and their states
-- **Sample ID Mapping**: Maps which Sample IDs are checked for which Analysis Requests
-- **Data Deliverables Checkboxes**: Extracts Level II, III, IV, Equis, and Others options
+- **Analysis Request Mapping**: Maps which Sample IDs are checked for which Analysis Requests
+- **Data Deliverables Checkboxes**: Extracts Level I, II, III, IV, Equis, and Others options
 - **Rush Options**: Extracts Same Day, 1 Day, 2 Day, 3 Day, and Others options
-- **Time Zone Collection**: Extracts AM, PT, MT, CT, ET timezone checkboxes
+- **Time Zone Collection**: Extracts PT, MT, CT, ET, AK, HI timezone checkboxes
 - **Container Information**: Extracts Container Size and Preservative Type values
 - **Reportable Checkboxes**: Extracts Yes/No reportable options
-- **Flexible Field Patterns**: Handles various field naming conventions (underscores, hyphens, prefixes)
-- **AI-Powered Analysis**: Uses Google Gemini 2.5 Flash for accurate and detailed extraction
+
+### API & Interface
 - **Single API Endpoint**: One endpoint to upload PDF and get all extracted information
 - **Interactive Command Line**: User-friendly interface for direct PDF processing
 - **Structured JSON Response**: Returns well-organized JSON with all extracted data
+- **FastAPI Integration**: Modern, fast web framework with automatic documentation
 
 ## Installation
 
@@ -75,6 +95,34 @@ pip install uvicorn
 pip install python-multipart
 pip install pydantic
 pip install numpy
+```
+
+## 🚀 Quick Start
+
+### 1. Setup (2 minutes)
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/pdf-chain-of-custody-extraction.git
+cd pdf-chain-of-custody-extraction
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up API key
+cp env.example .env
+# Edit .env and add your Gemini API key
+```
+
+### 2. Run the API Server
+```bash
+python api.py
+```
+Visit `http://localhost:8000/docs` for interactive API documentation.
+
+### 3. Test with Sample PDF
+```bash
+# Upload a PDF via the API or use directly:
+python -c "from pdf_extractor_restructured import RestructuredPDFExtractor; print(RestructuredPDFExtractor().extract_comprehensive('Sample Documents/1.pdf'))"
 ```
 
 ## Usage
@@ -271,6 +319,21 @@ The system creates a comprehensive mapping showing:
 - Which Analysis Requests are available
 - Which Analysis Requests are checked for each Sample ID
 
+## ⚠️ Current Limitations & Constraints
+
+### Known Issues
+- **Date/Time Mapping**: Some fields with `collected_start_*` patterns may map to incorrect columns
+- **Sample Data Completeness**: Some extracted fields may not appear in `sample_data_information[]`
+- **Analysis Request Accuracy**: Analysis processing may not be 100% accurate in all cases
+
+### System Constraints
+- **AI Vision Accuracy**: Handwritten text or poorly scanned documents may cause extraction errors
+- **Field Name Variations**: Different document formats use varying field naming conventions
+- **Document Quality**: Poor scan quality affects extraction accuracy
+- **Complex Layouts**: Overlapping text elements may cause field confusion
+- **JSON Response Reliability**: AI Vision responses may contain malformed JSON
+- **API Rate Limits**: May affect processing speed for large documents
+
 ## Configuration
 
 ### Environment Variables
@@ -288,7 +351,7 @@ GEMINI_API_KEY=your_actual_gemini_api_key_here
 - **Supported formats**: PDF only
 - **Image resolution**: 2x scaling for better accuracy
 - **Server binding**: localhost (127.0.0.1) for better compatibility
-- **Field Mapping**: Intelligent mapping with support for various naming patterns
+- **Field Mapping**: Intelligent mapping with support for 20+ field patterns
 
 ## Troubleshooting
 
@@ -309,27 +372,33 @@ The system includes comprehensive error handling:
 - JSON parsing errors
 - User input validation
 
-## File Structure
+## 📁 Project Structure
 
 ```
-project/
+pdf-chain-of-custody-extraction/
 ├── config.py                      # Configuration and API key setup
 ├── pdf_extractor_restructured.py  # Main extraction logic with comprehensive field mapping
 ├── api.py                         # FastAPI web service
 ├── requirements.txt               # Python dependencies
-├── README.md                     # This file
+├── README.md                     # Project documentation
 ├── DEPLOYMENT.md                 # Deployment instructions
 ├── RESTRUCTURED_RESPONSE_FORMAT.md # Response format documentation
+├── CHANGELOG.md                  # Version history and changes
 ├── LICENSE                       # MIT License
 ├── .env                          # API key configuration (create this)
 ├── env.example                   # Example environment file
 ├── .gitignore                    # Git ignore rules
-└── Sample Documents/             # Sample PDF files
-    ├── COC_2036_001 (3).pdf     # Main test PDF
-    ├── 2097_001.pdf             # Additional test PDF
-    ├── COC_2014r (1).pdf        # Additional test PDF
-    ├── OCR 35.pdf               # Additional test PDF
-    └── OCR 37.pdf               # Additional test PDF
+└── Sample Documents/             # Sample PDF files for testing
+    ├── 1.pdf                     # Test PDF
+    ├── 3.pdf                     # Test PDF
+    ├── 11.pdf                    # Test PDF
+    ├── 14.pdf                    # Test PDF
+    ├── 18.pdf                    # Test PDF
+    ├── 2097_001.pdf              # Test PDF
+    ├── COC_2014r (1).pdf         # Test PDF
+    ├── COC_2036_001 (3).pdf      # Test PDF
+    ├── OCR 35.pdf                # Test PDF
+    └── OCR 37.pdf                # Test PDF
 ```
 
 ## Contributing

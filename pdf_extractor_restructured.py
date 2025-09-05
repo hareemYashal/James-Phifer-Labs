@@ -1049,15 +1049,34 @@ class RestructuredPDFExtractor:
                         key.startswith("matrix_type_sample_") or key.endswith("_matrix_type_sample") or
                         key == "matrix"):
                         sample_info["Matrix"] = value
-                    elif key.startswith("comp_grab_") or key.endswith("_comp_grab") or key in ["comp/grab", "comp_grab", "composite_grab"]:
+                    elif (key.startswith("comp_grab_") or key.endswith("_comp_grab") or 
+                          key.startswith("grab_comp_") or key.endswith("_grab_comp") or
+                          key in ["comp/grab", "comp_grab", "composite_grab", "grab_comp"]):
                         sample_info["Comp/Grab"] = value
-                    elif key.startswith("collected_date_start_") or key.endswith("_collected_date_start") or key in ["composite_start_date", "composite start date"]:
+                    elif (key.startswith("collected_date_start_") or key.endswith("_collected_date_start") or 
+                          key.startswith("collected_date_mf_p_i") or key.endswith("_collected_date_mf_p_i") or
+                          key.startswith("date_sh_50") or key.endswith("_date_sh_50") or
+                          key.startswith("date_collected_sh_50") or key.endswith("_date_collected_sh_50") or
+                          key.startswith("composite_start_date_") or key.endswith("_composite_start_date") or
+                          key.startswith("collected_as_composite_start_date_") or key.endswith("_collected_as_composite_start_date") or
+                          key.startswith("collected_or_composite_start_date_") or key.endswith("_collected_or_composite_start_date") or
+                          key.startswith("collected_date_") or key.endswith("_collected_date") or
+                          key in ["composite_start_date", "composite start date", "collected_date_mf_p_i", "date_sh_50", "date_collected_sh_50"]):
                         sample_info["Composite Start Date"] = value
-                    elif key.startswith("collected_time_start_") or key.endswith("_collected_time_start") or key == "time_collected_composite_start" or key in ["composite_start_time", "composite start time"]:
+                    elif (key.startswith("collected_time_start_") or key.endswith("_collected_time_start") or 
+                          key.startswith("collected_time_mf_p_i") or key.endswith("_collected_time_mf_p_i") or
+                          key.startswith("time_sh_50") or key.endswith("_time_sh_50") or
+                          key.startswith("time_collected_sh_50") or key.endswith("_time_collected_sh_50") or
+                          key.startswith("composite_start_time_") or key.endswith("_composite_start_time") or
+                          key.startswith("collected_as_composite_start_time_") or key.endswith("_collected_as_composite_start_time") or
+                          key.startswith("collected_or_composite_start_time_") or key.endswith("_collected_or_composite_start_time") or
+                          key.startswith("collected_time_") or key.endswith("_collected_time") or
+                          key == "time_collected_composite_start" or key in ["composite_start_time", "composite start time", "collected_time_mf_p_i", "time_sh_50", "time_collected_sh_50"]):
                         sample_info["Composite Start Time"] = value
                     elif (key.startswith("collected_date_end_") or key.endswith("_collected_date_end") or 
                           key.startswith("collected_as_composite_end_date_") or key.endswith("_collected_as_composite_end_date") or
                           key.startswith("collected_at_composite_end_date_") or key.endswith("_collected_at_composite_end_date") or
+                          key.startswith("collected_or_composite_end_date_") or key.endswith("_collected_or_composite_end_date") or
                           key.startswith("composite_end_date_") or key.endswith("_composite_end_date") or
                           key in ["composite_end_date", "composite end date", "collected_composite_end_date", "collected or composite end date", "date_collected_composite_end", "collected_or_composite_end_date"] or 
                           key.startswith("collected_composite_end_date_")):
@@ -1065,6 +1084,7 @@ class RestructuredPDFExtractor:
                     elif (key.startswith("collected_time_end_") or key.endswith("_collected_time_end") or 
                           key.startswith("collected_as_composite_end_time_") or key.endswith("_collected_as_composite_end_time") or
                           key.startswith("collected_at_composite_end_time_") or key.endswith("_collected_at_composite_end_time") or
+                          key.startswith("collected_or_composite_end_time_") or key.endswith("_collected_or_composite_end_time") or
                           key.startswith("composite_end_time_") or key.endswith("_composite_end_time") or
                           key == "time_collected_composite_end" or key in ["composite_end_time", "composite end time", "collected_composite_end_time", "collected or composite end time", "collected_or_composite_end_time"] or 
                           key.startswith("collected_composite_end_time_")):
@@ -1074,6 +1094,56 @@ class RestructuredPDFExtractor:
                         sample_info["Composite or Collected End Date"] = value
                     elif key == "collected_or_composite_end_time":
                         sample_info["Composite or Collected End Time"] = value
+                    # Handle specific field patterns mentioned in user examples
+                    elif key.startswith("collected_or_composite_end_date_laj_410") or key.endswith("_collected_or_composite_end_date_laj_410"):
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key.startswith("collected_or_composite_end_time_laj_410") or key.endswith("_collected_or_composite_end_time_laj_410"):
+                        sample_info["Composite or Collected End Time"] = value
+                    elif key.startswith("collected_at_composite_end_date_laj_410") or key.endswith("_collected_at_composite_end_date_laj_410"):
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key.startswith("collected_at_composite_end_time_laj_410") or key.endswith("_collected_at_composite_end_time_laj_410"):
+                        sample_info["Composite or Collected End Time"] = value
+                    elif key.startswith("collected_composite_end_date_yot_810") or key.endswith("_collected_composite_end_date_yot_810"):
+                        sample_info["Composite or Collected End Date"] = value
+                    elif key.startswith("collected_composite_end_time_yot_810") or key.endswith("_collected_composite_end_time_yot_810"):
+                        sample_info["Composite or Collected End Time"] = value
+                    elif key.startswith("composite_start_date_laj_410") or key.endswith("_composite_start_date_laj_410"):
+                        sample_info["Composite Start Date"] = value
+                    elif key.startswith("composite_start_time_laj_410") or key.endswith("_composite_start_time_laj_410"):
+                        sample_info["Composite Start Time"] = value
+                    elif key.startswith("collected_as_composite_start_date_eqo_271") or key.endswith("_collected_as_composite_start_date_eqo_271"):
+                        sample_info["Composite Start Date"] = value
+                    elif key.startswith("collected_as_composite_start_time_eqo_271") or key.endswith("_collected_as_composite_start_time_eqo_271"):
+                        sample_info["Composite Start Time"] = value
+                    elif key.startswith("collected_as_composite_start_date_") or key.endswith("_collected_as_composite_start_date"):
+                        sample_info["Composite Start Date"] = value
+                    elif key.startswith("collected_as_composite_start_time_") or key.endswith("_collected_as_composite_start_time"):
+                        sample_info["Composite Start Time"] = value
+                    elif key.startswith("collected_date_mw") or key.endswith("_collected_date_mw"):
+                        sample_info["Composite Start Date"] = value
+                    elif key.startswith("collected_time_mw") or key.endswith("_collected_time_mw"):
+                        sample_info["Composite Start Time"] = value
+                    elif key.startswith("collected_date_sw") or key.endswith("_collected_date_sw"):
+                        sample_info["Composite Start Date"] = value
+                    elif key.startswith("collected_time_sw") or key.endswith("_collected_time_sw"):
+                        sample_info["Composite Start Time"] = value
+                    elif key.startswith("collected_date_ss") or key.endswith("_collected_date_ss"):
+                        sample_info["Composite Start Date"] = value
+                    elif key.startswith("collected_time_ss") or key.endswith("_collected_time_ss"):
+                        sample_info["Composite Start Time"] = value
+                    # Handle matrix_grab_code fields that combine both Matrix and Comp/Grab
+                    elif key.startswith("matrix_grab_code_") or key.endswith("_matrix_grab_code"):
+                        # This field contains both Matrix and Comp/Grab combined (e.g., "B2")
+                        # We'll store it in Matrix for now and separate it later
+                        sample_info["Matrix"] = value
+                    # Handle result_units fields that combine both result and units
+                    elif key.startswith("result_units_") or key.endswith("_result_units"):
+                        # This field contains both result and units combined (e.g., "0.5 mg")
+                        # We'll store it in Residual Chloride Result for now and separate it later
+                        sample_info["Residual Chloride Result"] = value
+                    # Handle grab_comp fields specifically (e.g., grab_comp_MF_P1)
+                    elif key.startswith("grab_comp_") or key.endswith("_grab_comp"):
+                        sample_info["Comp/Grab"] = value
                     # Handle fields with sample ID suffixes
                     elif key.startswith("collected_or_composite_end_date_") and key.endswith(f"_{sample_id.replace(' ', '_').replace('-', '_')}"):
                         sample_info["Composite or Collected End Date"] = value
@@ -1189,15 +1259,34 @@ class RestructuredPDFExtractor:
                         key.startswith("matrix_type_sample_") or key.endswith("_matrix_type_sample") or
                         key == "matrix"):
                         sample_info["Matrix"] = value
-                    elif key.startswith("comp_grab_") or key.endswith("_comp_grab") or key in ["comp/grab", "comp_grab", "composite_grab"]:
+                    elif (key.startswith("comp_grab_") or key.endswith("_comp_grab") or 
+                          key.startswith("grab_comp_") or key.endswith("_grab_comp") or
+                          key in ["comp/grab", "comp_grab", "composite_grab", "grab_comp"]):
                         sample_info["Comp/Grab"] = value
-                    elif key.startswith("collected_date_start_") or key.endswith("_collected_date_start") or key in ["composite_start_date", "composite start date"]:
+                    elif (key.startswith("collected_date_start_") or key.endswith("_collected_date_start") or 
+                          key.startswith("collected_date_mf_p_i") or key.endswith("_collected_date_mf_p_i") or
+                          key.startswith("date_sh_50") or key.endswith("_date_sh_50") or
+                          key.startswith("date_collected_sh_50") or key.endswith("_date_collected_sh_50") or
+                          key.startswith("composite_start_date_") or key.endswith("_composite_start_date") or
+                          key.startswith("collected_as_composite_start_date_") or key.endswith("_collected_as_composite_start_date") or
+                          key.startswith("collected_or_composite_start_date_") or key.endswith("_collected_or_composite_start_date") or
+                          key.startswith("collected_date_") or key.endswith("_collected_date") or
+                          key in ["composite_start_date", "composite start date", "collected_date_mf_p_i", "date_sh_50", "date_collected_sh_50"]):
                         sample_info["Composite Start Date"] = value
-                    elif key.startswith("collected_time_start_") or key.endswith("_collected_time_start") or key == "time_collected_composite_start" or key in ["composite_start_time", "composite start time"]:
+                    elif (key.startswith("collected_time_start_") or key.endswith("_collected_time_start") or 
+                          key.startswith("collected_time_mf_p_i") or key.endswith("_collected_time_mf_p_i") or
+                          key.startswith("time_sh_50") or key.endswith("_time_sh_50") or
+                          key.startswith("time_collected_sh_50") or key.endswith("_time_collected_sh_50") or
+                          key.startswith("composite_start_time_") or key.endswith("_composite_start_time") or
+                          key.startswith("collected_as_composite_start_time_") or key.endswith("_collected_as_composite_start_time") or
+                          key.startswith("collected_or_composite_start_time_") or key.endswith("_collected_or_composite_start_time") or
+                          key.startswith("collected_time_") or key.endswith("_collected_time") or
+                          key == "time_collected_composite_start" or key in ["composite_start_time", "composite start time", "collected_time_mf_p_i", "time_sh_50", "time_collected_sh_50"]):
                         sample_info["Composite Start Time"] = value
                     elif (key.startswith("collected_date_end_") or key.endswith("_collected_date_end") or 
                           key.startswith("collected_as_composite_end_date_") or key.endswith("_collected_as_composite_end_date") or
                           key.startswith("collected_at_composite_end_date_") or key.endswith("_collected_at_composite_end_date") or
+                          key.startswith("collected_or_composite_end_date_") or key.endswith("_collected_or_composite_end_date") or
                           key.startswith("composite_end_date_") or key.endswith("_composite_end_date") or
                           key in ["composite_end_date", "composite end date", "collected_composite_end_date", "collected or composite end date", "date_collected_composite_end", "collected_or_composite_end_date"] or 
                           key.startswith("collected_composite_end_date_")):
@@ -1205,6 +1294,7 @@ class RestructuredPDFExtractor:
                     elif (key.startswith("collected_time_end_") or key.endswith("_collected_time_end") or 
                           key.startswith("collected_as_composite_end_time_") or key.endswith("_collected_as_composite_end_time") or
                           key.startswith("collected_at_composite_end_time_") or key.endswith("_collected_at_composite_end_time") or
+                          key.startswith("collected_or_composite_end_time_") or key.endswith("_collected_or_composite_end_time") or
                           key.startswith("composite_end_time_") or key.endswith("_composite_end_time") or
                           key == "time_collected_composite_end" or key in ["composite_end_time", "composite end time", "collected_composite_end_time", "collected or composite end time", "collected_or_composite_end_time"] or 
                           key.startswith("collected_composite_end_time_")):
@@ -1256,6 +1346,33 @@ class RestructuredPDFExtractor:
                     parts = matrix_value.split()
                     sample_info["Matrix"] = parts[0]  # First part is Matrix
                     sample_info["Comp/Grab"] = parts[1]  # Second part is Comp/Grab
+            
+            # Handle special case where Matrix and Grab/Comp are combined (e.g., "B2" should be Matrix="B", Comp/Grab="2")
+            if sample_info["Matrix"] != "NIL" and sample_info["Comp/Grab"] == "NIL":
+                matrix_value = sample_info["Matrix"]
+                # Check if it's a combination like "B2", "C3", etc.
+                if len(matrix_value) == 2 and matrix_value[0].isalpha() and matrix_value[1].isdigit():
+                    sample_info["Matrix"] = matrix_value[0]  # First character is Matrix
+                    sample_info["Comp/Grab"] = matrix_value[1]  # Second character is Comp/Grab
+            
+            # Handle special case where result and units are combined (e.g., "0.5 mg" should be result="0.5", units="mg")
+            if sample_info["Residual Chloride Result"] != "NIL" and sample_info["Residual Chloride Units"] == "NIL":
+                result_value = sample_info["Residual Chloride Result"]
+                # Check if it contains both number and unit (e.g., "0.5 mg", "1.2 ug/L")
+                import re
+                match = re.match(r'^([\d.]+)\s*([a-zA-Z/]+)$', result_value.strip())
+                if match:
+                    sample_info["Residual Chloride Result"] = match.group(1)  # Number part
+                    sample_info["Residual Chloride Units"] = match.group(2)  # Unit part
+            
+            # Handle special case where matrix_grab_code field contains both Matrix and Comp/Grab (e.g., "B2" should be Matrix="B", Comp/Grab="2")
+            # This handles the specific case mentioned in user examples
+            if sample_info["Matrix"] != "NIL" and sample_info["Comp/Grab"] == "NIL":
+                matrix_value = sample_info["Matrix"]
+                # Check if it's a combination like "B2", "C3", etc. (letter followed by number)
+                if len(matrix_value) == 2 and matrix_value[0].isalpha() and matrix_value[1].isdigit():
+                    sample_info["Matrix"] = matrix_value[0]  # First character is Matrix
+                    sample_info["Comp/Grab"] = matrix_value[1]  # Second character is Comp/Grab
             
             # If we still have NIL values, try to fill them from the general field mapping
             # This handles cases where fields are extracted but not explicitly associated with sample IDs
@@ -1391,6 +1508,7 @@ class RestructuredPDFExtractor:
             # Create separate entries for each checked analysis request
             # First, find all analysis checkboxes for this sample
             checked_analyses = []
+            
             for field in sample_data_fields:
                 if (field.get('type') == 'analysis_checkbox' and 
                     field.get('sample_id') == sample_id and 
@@ -1648,7 +1766,7 @@ class RestructuredPDFExtractor:
                 'order', 'quote', 'date', 'time', 'location', 'city', 'state', 'county',
                 'origin', 'regulatory', 'program', 'permit', 'ow_pwsid', 'ww_permit',
                 'lab_use', 'proj_mgr', 'account', 'profile', 'template', 'bottle', 'qc',
-                'field_id', 'temp', 'corrected', 'comm', 'instructions', 'remarks',
+                'field_id', 'temp', 'corrected', 'comm', 'instructions',
                 'hazards', 'relinquished', 'received', 'signature', 'printed', 'name',
                 'tracking', 'delivered', 'hand', 'person', 'fedex', 'ups', 'labline',
                 'page', 'env_frm', 'corq', 'header', 'title', 'scan', 'qr', 'code'
